@@ -1,0 +1,3199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>
+try{var s=localStorage.getItem('color-scheme');if(s==='light'||s==='dark')document.querySelector('meta[name="color-scheme"]').content=s;}catch(e){}
+</script>
+<title>Focos C7 Studio</title>
+<style>
+@property --rgb-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@property --fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --ambient-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ef4444;
+}
+
+@property --ambient-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3b82f6;
+}
+
+@property --glint-a {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+:root {
+  color-scheme: light dark;
+  --bg-l: #eaf0fa;
+  --bg-d: #05070d;
+  --text-l: #0f172a;
+  --text-d: #f3f6fb;
+  --muted-l: #475569;
+  --muted-d: #9fa9bc;
+  --dim-l: #64748b;
+  --dim-d: #798498;
+
+  --glass-top-l: rgba(255, 255, 255, 0.64);
+  --glass-top-d: rgba(255, 255, 255, 0.08);
+  --glass-mid-l: rgba(255, 255, 255, 0.24);
+  --glass-mid-d: rgba(255, 255, 255, 0.028);
+  --glass-bot-l: rgba(255, 255, 255, 0.46);
+  --glass-bot-d: rgba(255, 255, 255, 0.048);
+  --glass-elev-l: rgba(255, 255, 255, 0.8);
+  --glass-elev-d: rgba(34, 39, 54, 0.64);
+  --glass-bar-l: rgba(246, 249, 255, 0.68);
+  --glass-bar-d: rgba(12, 15, 24, 0.62);
+  --glass-dlg-l: rgba(247, 250, 255, 0.86);
+  --glass-dlg-d: rgba(16, 19, 28, 0.84);
+
+  --stroke-l: rgba(255, 255, 255, 0.56);
+  --stroke-d: rgba(255, 255, 255, 0.075);
+  --stroke-soft-l: rgba(15, 23, 42, 0.09);
+  --stroke-soft-d: rgba(255, 255, 255, 0.065);
+  --sep-l: rgba(15, 23, 42, 0.09);
+  --sep-d: rgba(255, 255, 255, 0.08);
+
+  --rim-top-l: rgba(255, 255, 255, 0.88);
+  --rim-top-d: rgba(255, 255, 255, 0.12);
+  --rim-side-l: rgba(255, 255, 255, 0.38);
+  --rim-side-d: rgba(255, 255, 255, 0.04);
+  --rim-bot-l: rgba(15, 23, 42, 0.08);
+  --rim-bot-d: rgba(0, 0, 0, 0.42);
+  --caustic-l: rgba(255, 255, 255, 0.38);
+  --caustic-d: rgba(255, 255, 255, 0.05);
+  --drop-l: rgba(15, 23, 42, 0.13);
+  --drop-d: rgba(0, 0, 0, 0.68);
+
+  --btn-bg-l: rgba(255, 255, 255, 0.58);
+  --btn-bg-d: rgba(255, 255, 255, 0.075);
+  --btn-hover-l: rgba(255, 255, 255, 0.82);
+  --btn-hover-d: rgba(255, 255, 255, 0.13);
+  --card-mob-top-l: rgba(255, 255, 255, 0.78);
+  --card-mob-bot-l: rgba(255, 255, 255, 0.58);
+  --card-mob-top-d: rgba(24, 29, 44, 0.74);
+  --card-mob-bot-d: rgba(14, 18, 30, 0.6);
+  --seg-bg-l: rgba(15, 23, 42, 0.05);
+  --seg-bg-d: rgba(255, 255, 255, 0.05);
+
+  --accent-bg-l: #0f172a;
+  --accent-bg-d: #f4f6fa;
+  --accent-ink-l: #f8fafc;
+  --accent-ink-d: #090b10;
+
+  --input-bg-l: rgba(255, 255, 255, 0.66);
+  --input-bg-d: rgba(10, 12, 19, 0.58);
+
+  --ok-l: #15803d;
+  --ok-d: #4ade80;
+  --danger-l: #b91c1c;
+  --danger-d: #f87171;
+  --warn-l: #b45309;
+  --warn-d: #fbbf24;
+
+  --sb-thumb-l: #6b7280;
+  --sb-thumb-d: #64748b;
+  --sb-track-l: #e2e8f0;
+  --sb-track-d: #0f172a;
+
+  --bg: var(--bg-l);
+  --text: var(--text-l);
+  --text-muted: var(--muted-l);
+  --text-dim: var(--dim-l);
+  --glass-top: var(--glass-top-l);
+  --glass-mid: var(--glass-mid-l);
+  --glass-bot: var(--glass-bot-l);
+  --glass-elev: var(--glass-elev-l);
+  --glass-bar: var(--glass-bar-l);
+  --glass-dlg: var(--glass-dlg-l);
+  --stroke: var(--stroke-l);
+  --stroke-soft: var(--stroke-soft-l);
+  --sep: var(--sep-l);
+  --rim-top: var(--rim-top-l);
+  --rim-side: var(--rim-side-l);
+  --rim-bot: var(--rim-bot-l);
+  --caustic: var(--caustic-l);
+  --drop: var(--drop-l);
+  --accent-solid: var(--accent-bg-l);
+  --accent-ink: var(--accent-ink-l);
+  --input-bg: var(--input-bg-l);
+  --ok: var(--ok-l);
+  --danger: var(--danger-l);
+  --warn: var(--warn-l);
+  --sb-thumb: var(--sb-thumb-l);
+  --sb-track: var(--sb-track-l);
+  --btn-bg: var(--btn-bg-l);
+  --btn-hover: var(--btn-hover-l);
+  --card-mob-top: var(--card-mob-top-l);
+  --card-mob-bot: var(--card-mob-bot-l);
+  --seg-bg: var(--seg-bg-l);
+  --glass-bright: 1.06;
+  --glint-strength: 0.72;
+  --orb-opacity: 0.56;
+  --bezel-glow-opacity: 0.34;
+
+  --ambient-a: #ef4444;
+  --ambient-b: #3b82f6;
+  --target-size: 24px;
+  --radius-xl: 1.45rem;
+  --radius-lg: 1.05rem;
+  --radius-md: 0.8rem;
+  --radius-pill: 999px;
+
+  &:has(> head > meta[name="color-scheme"][content="dark"]) { color-scheme: dark; }
+  &:has(> head > meta[name="color-scheme"][content="light"]) { color-scheme: light; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) {
+    --bg: var(--bg-d);
+    --text: var(--text-d);
+    --text-muted: var(--muted-d);
+    --text-dim: var(--dim-d);
+    --glass-top: var(--glass-top-d);
+    --glass-mid: var(--glass-mid-d);
+    --glass-bot: var(--glass-bot-d);
+    --glass-elev: var(--glass-elev-d);
+    --glass-bar: var(--glass-bar-d);
+    --glass-dlg: var(--glass-dlg-d);
+    --stroke: var(--stroke-d);
+    --stroke-soft: var(--stroke-soft-d);
+    --sep: var(--sep-d);
+    --rim-top: var(--rim-top-d);
+    --rim-side: var(--rim-side-d);
+    --rim-bot: var(--rim-bot-d);
+    --caustic: var(--caustic-d);
+    --drop: var(--drop-d);
+    --accent-solid: var(--accent-bg-d);
+    --accent-ink: var(--accent-ink-d);
+    --input-bg: var(--input-bg-d);
+    --ok: var(--ok-d);
+    --danger: var(--danger-d);
+    --warn: var(--warn-d);
+    --sb-thumb: var(--sb-thumb-d);
+    --sb-track: var(--sb-track-d);
+    --btn-bg: var(--btn-bg-d);
+    --btn-hover: var(--btn-hover-d);
+    --card-mob-top: var(--card-mob-top-d);
+    --card-mob-bot: var(--card-mob-bot-d);
+    --seg-bg: var(--seg-bg-d);
+    --glass-bright: 1.1;
+    --glint-strength: 0.24;
+    --orb-opacity: 0.48;
+    --bezel-glow-opacity: 0.42;
+  }
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  --glass-bright: 1.12;
+  --glint-strength: 0.26;
+  --orb-opacity: 0.48;
+  --bezel-glow-opacity: 0.42;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  --glass-bright: 1.06;
+  --glint-strength: 0.72;
+  --orb-opacity: 0.56;
+  --bezel-glow-opacity: 0.34;
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --bg: light-dark(var(--bg-l), var(--bg-d));
+    --text: light-dark(var(--text-l), var(--text-d));
+    --text-muted: light-dark(var(--muted-l), var(--muted-d));
+    --text-dim: light-dark(var(--dim-l), var(--dim-d));
+    --glass-top: light-dark(var(--glass-top-l), var(--glass-top-d));
+    --glass-mid: light-dark(var(--glass-mid-l), var(--glass-mid-d));
+    --glass-bot: light-dark(var(--glass-bot-l), var(--glass-bot-d));
+    --glass-elev: light-dark(var(--glass-elev-l), var(--glass-elev-d));
+    --glass-bar: light-dark(var(--glass-bar-l), var(--glass-bar-d));
+    --glass-dlg: light-dark(var(--glass-dlg-l), var(--glass-dlg-d));
+    --stroke: light-dark(var(--stroke-l), var(--stroke-d));
+    --stroke-soft: light-dark(var(--stroke-soft-l), var(--stroke-soft-d));
+    --sep: light-dark(var(--sep-l), var(--sep-d));
+    --rim-top: light-dark(var(--rim-top-l), var(--rim-top-d));
+    --rim-side: light-dark(var(--rim-side-l), var(--rim-side-d));
+    --rim-bot: light-dark(var(--rim-bot-l), var(--rim-bot-d));
+    --caustic: light-dark(var(--caustic-l), var(--caustic-d));
+    --drop: light-dark(var(--drop-l), var(--drop-d));
+    --accent-solid: light-dark(var(--accent-bg-l), var(--accent-bg-d));
+    --accent-ink: light-dark(var(--accent-ink-l), var(--accent-ink-d));
+    --input-bg: light-dark(var(--input-bg-l), var(--input-bg-d));
+    --ok: light-dark(var(--ok-l), var(--ok-d));
+    --danger: light-dark(var(--danger-l), var(--danger-d));
+    --warn: light-dark(var(--warn-l), var(--warn-d));
+    --sb-thumb: light-dark(var(--sb-thumb-l), var(--sb-thumb-d));
+    --sb-track: light-dark(var(--sb-track-l), var(--sb-track-d));
+    --btn-bg: light-dark(var(--btn-bg-l), var(--btn-bg-d));
+    --btn-hover: light-dark(var(--btn-hover-l), var(--btn-hover-d));
+    --card-mob-top: light-dark(var(--card-mob-top-l), var(--card-mob-top-d));
+    --card-mob-bot: light-dark(var(--card-mob-bot-l), var(--card-mob-bot-d));
+    --seg-bg: light-dark(var(--seg-bg-l), var(--seg-bg-d));
+  }
+}
+
+@media (pointer: coarse) {
+  :root { --target-size: 44px; }
+  .lg-surface {
+    -webkit-backdrop-filter: blur(18px) saturate(185%) brightness(var(--glass-bright));
+    backdrop-filter: blur(18px) saturate(185%) brightness(var(--glass-bright));
+  }
+  .opt-card {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: linear-gradient(142deg, var(--card-mob-top), var(--card-mob-bot));
+    contain: layout style;
+  }
+  .orb-1, .orb-2, .orb-3, .orb-4 { filter: none; }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+body {
+  margin: 0;
+  min-block-size: 100svh;
+  background: transparent;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+[hidden]:not([hidden="until-found"]) { display: none; }
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+:where(button, select, input, a) {
+  font: inherit;
+  color: inherit;
+}
+
+:where(button, select, textarea, input:not([type="checkbox"], [type="radio"], [type="range"])) {
+  min-block-size: var(--target-size);
+  min-inline-size: var(--target-size);
+}
+
+:where(button, a, input, select, summary):focus-visible {
+  outline: 2px solid var(--accent-solid);
+  outline-offset: 2px;
+}
+
+.num { font-variant-numeric: tabular-nums; }
+
+/* ── Fondo fluido Liquid Glass ── */
+.ambient-scene {
+  position: fixed;
+  top: -60px;
+  left: 0;
+  width: 100%;
+  height: calc(100vh + 120px);
+  height: var(--scene-h, calc(100lvh + 120px));
+  z-index: 0;
+  isolation: isolate;
+  overflow: clip;
+  pointer-events: none;
+  background: var(--bg);
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  contain: strict;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 46% 54% 62% 38% / 44% 58% 42% 56%;
+  opacity: var(--orb-opacity);
+  will-change: transform;
+}
+
+.orb-1 {
+  top: -8%;
+  left: -8%;
+  width: 56%;
+  height: 50%;
+  background: radial-gradient(closest-side, rgba(239, 68, 68, 0.56) 0%, rgba(245, 158, 11, 0.25) 45%, transparent 78%);
+  filter: blur(36px);
+}
+
+.orb-2 {
+  top: 15%;
+  left: 44%;
+  width: 54%;
+  height: 48%;
+  background: radial-gradient(closest-side, rgba(34, 197, 94, 0.46) 0%, rgba(59, 130, 246, 0.30) 45%, transparent 78%);
+  filter: blur(40px);
+}
+
+.orb-3 {
+  top: 56%;
+  left: 16%;
+  width: 60%;
+  height: 46%;
+  background: radial-gradient(closest-side, rgba(59, 130, 246, 0.48) 0%, rgba(168, 85, 247, 0.28) 45%, transparent 78%);
+  filter: blur(42px);
+}
+
+.orb-4 {
+  top: -12%;
+  left: -12%;
+  width: 124%;
+  height: 124%;
+  background: linear-gradient(122deg, transparent 22%, rgba(251, 191, 36, 0.20) 38%, rgba(255, 255, 255, 0.24) 46%, rgba(59, 130, 246, 0.24) 55%, transparent 72%);
+  filter: blur(28px);
+}
+
+@keyframes float-orb-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate3d(14%, 10%, 0) scale(1.12) rotate(18deg); }
+}
+
+@keyframes float-orb-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate3d(-14%, -9%, 0) scale(1.14) rotate(-20deg); }
+}
+
+@keyframes float-orb-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-10%, -12%, 0) scale(1.15); }
+}
+
+@keyframes sweep-caustic {
+  0%, 100% { transform: translate3d(-10%, -8%, 0) rotate(-6deg); }
+  50% { transform: translate3d(12%, 10%, 0) rotate(6deg); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .orb-1 { animation: float-orb-1 17s ease-in-out infinite; }
+  .orb-2 { animation: float-orb-2 21s ease-in-out infinite; }
+  .orb-3 { animation: float-orb-3 24s ease-in-out infinite; }
+  .orb-4 { animation: sweep-caustic 15s ease-in-out infinite; }
+}
+
+.lg-surface {
+  background: linear-gradient(142deg, var(--glass-top), var(--glass-mid) 52%, var(--glass-bot));
+  -webkit-backdrop-filter: blur(22px) saturate(190%) brightness(var(--glass-bright));
+  backdrop-filter: url(#lg-refract) blur(20px) saturate(190%) brightness(var(--glass-bright));
+  border: 1px solid var(--stroke);
+  box-shadow:
+    0 14px 36px -12px var(--drop),
+    0 2px 8px -2px var(--drop),
+    inset 0 1px 0 0 var(--rim-top),
+    inset 1px 0 0 0 var(--rim-side),
+    inset 0 -1px 1px 0 var(--rim-bot),
+    inset 0 10px 20px -12px var(--caustic);
+}
+
+/* ── Topbar ── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  min-block-size: 3.75rem;
+  padding-block: max(0.6rem, env(safe-area-inset-top, 0px)) 0.6rem;
+  padding-inline: max(1rem, env(safe-area-inset-left, 0px)) max(1rem, env(safe-area-inset-right, 0px));
+  background: var(--glass-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(24px) saturate(190%);
+  border-block-end: 1px solid var(--stroke-soft);
+  box-shadow: inset 0 -1px 0 var(--caustic);
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  inline-size: 100%;
+  max-inline-size: 76rem;
+  margin-inline: auto;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  flex: none;
+  font-size: clamp(0.9rem, 0.84rem + 0.24vw, 1.08rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.brand-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.brand-dots i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-inline-start: auto;
+  min-inline-size: 0;
+}
+
+.glass-btn-base {
+  position: relative;
+  isolation: isolate;
+  background: var(--btn-bg);
+  -webkit-backdrop-filter: blur(18px) saturate(185%) brightness(var(--glass-bright));
+  backdrop-filter: blur(18px) saturate(185%) brightness(var(--glass-bright));
+  border: 1px solid var(--stroke-soft);
+  box-shadow: 0 4px 12px -4px var(--drop), inset 0 1px 0 0 var(--rim-top);
+  transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.glass-btn-base:hover:not(:disabled) { background: var(--btn-hover); }
+
+.theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: max(2.25rem, var(--target-size));
+  block-size: max(2.25rem, var(--target-size));
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  flex: none;
+}
+
+.theme-btn:hover { transform: translateY(-1px); }
+.theme-btn:active { transform: scale(0.95); }
+
+#btn_theme .theme-to-light { display: none; }
+#btn_theme .theme-to-dark { display: inline-flex; align-items: center; justify-content: center; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) #btn_theme .theme-to-light { display: inline-flex; align-items: center; justify-content: center; }
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) #btn_theme .theme-to-dark { display: none; }
+}
+:root:has(> head > meta[name="color-scheme"][content="dark"]) #btn_theme .theme-to-light { display: inline-flex; align-items: center; justify-content: center; }
+:root:has(> head > meta[name="color-scheme"][content="dark"]) #btn_theme .theme-to-dark { display: none; }
+:root:has(> head > meta[name="color-scheme"][content="light"]) #btn_theme .theme-to-light { display: none; }
+:root:has(> head > meta[name="color-scheme"][content="light"]) #btn_theme .theme-to-dark { display: inline-flex; align-items: center; justify-content: center; }
+
+.device-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-block-size: max(2.25rem, var(--target-size));
+  max-inline-size: 13.5rem;
+  min-inline-size: 0;
+  padding: 0.35rem 0.72rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.device-pill:hover { transform: translateY(-1px); }
+
+.device-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-icon { flex: none; color: var(--text-dim); }
+.device-pill[data-online="true"] .status-icon { color: var(--ok); }
+
+.apply-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  min-block-size: max(2.25rem, var(--target-size));
+  padding: 0.38rem 0.95rem;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+
+.apply-btn:hover { color: var(--text); }
+.apply-btn:active { transform: scale(0.97); }
+
+.apply-btn[data-dirty="true"],
+.apply-btn[data-dirty="true"]:hover:not(:disabled) {
+  background: var(--accent-solid);
+  color: var(--accent-ink);
+  border-color: var(--accent-solid);
+  box-shadow: 0 8px 24px -4px var(--drop), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.apply-btn[disabled] { opacity: 0.6; cursor: progress; }
+
+.dirty-mark {
+  inline-size: 0.4rem;
+  block-size: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+  display: none;
+}
+.apply-btn[data-dirty="true"] .dirty-mark { display: inline-block; }
+
+/* ── Shell de 2 columnas ── */
+.app-shell {
+  position: relative;
+  z-index: 1;
+  max-inline-size: 76rem;
+  margin-inline: auto;
+  padding: 1.5rem max(1rem, env(safe-area-inset-left, 0px)) 3.5rem max(1rem, env(safe-area-inset-right, 0px));
+  display: grid;
+  grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+  gap: 1.85rem;
+  align-items: start;
+}
+
+.stage-col {
+  position: sticky;
+  top: 5.15rem;
+  display: grid;
+  gap: 0.95rem;
+  min-inline-size: 0;
+}
+
+.bulbs-stage {
+  position: relative;
+  isolation: isolate;
+  inline-size: 100%;
+}
+
+.bulbs-stage::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  border-radius: calc(var(--radius-xl) + 2px);
+  background: conic-gradient(
+    from var(--rgb-angle),
+    #ef4444 0deg,
+    #f59e0b 90deg,
+    #22c55e 180deg,
+    #3b82f6 270deg,
+    #ef4444 360deg
+  );
+  filter: blur(26px) saturate(135%);
+  opacity: var(--bezel-glow-opacity);
+  pointer-events: none;
+}
+
+.bulbs-bezel {
+  position: relative;
+  z-index: 1;
+  inline-size: 100%;
+  padding: 0.32rem;
+  border-radius: var(--radius-xl);
+  background: #07090e;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.opt-card[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--rgb-angle),
+    #ef4444 0deg,
+    #f59e0b 90deg,
+    #22c55e 180deg,
+    #3b82f6 270deg,
+    #ef4444 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes rgb-spin {
+  from { --rgb-angle: 0deg; }
+  to { --rgb-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bulbs-stage { animation: rgb-spin 7s linear infinite; }
+  .opt-card[aria-pressed="true"] { animation: rgb-spin 4.5s linear infinite; }
+}
+
+.canvas-well {
+  position: relative;
+  border-radius: calc(var(--radius-xl) - 0.32rem);
+  background: radial-gradient(circle at 50% 25%, #111827 0%, #05070c 72%);
+  overflow: hidden;
+}
+
+#bulbs_canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: inherit;
+}
+
+.stage-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border-block-start: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 9, 16, 0.72);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+}
+
+.stage-hud strong { font-weight: 600; color: #fff; }
+.hud-badges { display: inline-flex; gap: 0.35rem; align-items: center; }
+
+.hud-pill {
+  padding: 0.14rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.hud-pill[data-tone="ddp"] {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(74, 222, 128, 0.45);
+  color: #86efac;
+}
+
+/* ── Panel rapido ── */
+.quick-controls {
+  padding: 0.95rem 1.05rem;
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.slider-block { display: grid; gap: 0.2rem; }
+
+.slider-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.slider-hdr output {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+input[type="range"].glass-range {
+  --slider-track-size: 0.375rem;
+  --slider-thumb-size: 1.15rem;
+  --slider-track-radius: 999px;
+  --slider-thumb-radius: 50%;
+  --slider-track-color: var(--sep);
+  --slider-fill-color: var(--accent-solid);
+  --slider-thumb-color: #ffffff;
+  --slider-progress: 25%;
+
+  appearance: none;
+  inline-size: 100%;
+  block-size: 2.2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"].glass-range::-webkit-slider-runnable-track {
+  block-size: var(--slider-track-size);
+  border-radius: var(--slider-track-radius);
+  background: linear-gradient(to right, var(--slider-fill-color) var(--slider-progress), var(--slider-track-color) var(--slider-progress));
+}
+
+input[type="range"].glass-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: var(--slider-thumb-size);
+  block-size: var(--slider-thumb-size);
+  margin-block-start: calc((var(--slider-track-size) - var(--slider-thumb-size)) / 2);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: var(--slider-thumb-radius);
+  background: var(--slider-thumb-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32), inset 0 1px 0 #ffffff;
+}
+
+input[type="range"].glass-range::-moz-range-track {
+  block-size: var(--slider-track-size);
+  border-radius: var(--slider-track-radius);
+  background: var(--slider-track-color);
+}
+
+input[type="range"].glass-range::-moz-range-progress {
+  block-size: var(--slider-track-size);
+  border-radius: var(--slider-track-radius);
+  background: var(--slider-fill-color);
+}
+
+input[type="range"].glass-range::-moz-range-thumb {
+  inline-size: var(--slider-thumb-size);
+  block-size: var(--slider-thumb-size);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: var(--slider-thumb-radius);
+  background: var(--slider-thumb-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+}
+
+.speed-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.divider-line {
+  block-size: 1px;
+  background: var(--sep);
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-block-size: max(2.25rem, var(--target-size));
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+input[type="checkbox"][switch],
+.switch-fallback {
+  appearance: none;
+  -webkit-appearance: none;
+  inline-size: 2.85rem;
+  block-size: 1.65rem;
+  padding: 0.1875rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--stroke-soft);
+  background: var(--sep);
+  display: inline-grid;
+  align-items: center;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  flex: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+input[type="checkbox"][switch]::before {
+  content: "";
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+input[type="checkbox"][switch]:checked {
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+}
+
+input[type="checkbox"][switch]:checked::before {
+  transform: translateX(1.18rem);
+  background: var(--accent-ink);
+}
+
+.random-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  padding-block-start: 0.25rem;
+}
+
+.mini-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mini-field label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Columna derecha (Pestañas) ── */
+.workspace-col {
+  container: workspace / inline-size;
+  min-inline-size: 0;
+  display: grid;
+  gap: 1.15rem;
+}
+
+.tablist {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border-radius: var(--radius-pill);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tablist::-webkit-scrollbar { display: none; }
+
+.tablist [role="tab"] {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-block-size: max(2.4rem, var(--target-size));
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+
+.tablist [role="tab"]:hover {
+  color: var(--text);
+  background: color-mix(in oklab, var(--text) 6%, transparent);
+}
+
+.tablist [role="tab"][aria-selected="true"] {
+  color: var(--text);
+  background: var(--glass-elev);
+  box-shadow: 0 2px 10px -2px var(--drop), inset 0 1px 0 var(--rim-top);
+}
+
+.panels-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[role="tabpanel"] {
+  grid-column: 1;
+  grid-row: 1;
+  min-inline-size: 0;
+}
+
+[role="tabpanel"][hidden="until-found"] {
+  pointer-events: none;
+  z-index: 0;
+}
+
+[role="tabpanel"]:not([hidden]) {
+  position: relative;
+  z-index: 2;
+}
+
+.panel-inner {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.panel-hdr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.panel-hdr h2 {
+  margin: 0;
+  font-size: clamp(1.125rem, 1.05rem + 0.4vw, 1.35rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.seg-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  padding: 0.24rem;
+  border-radius: var(--radius-pill);
+  background: var(--seg-bg);
+  border: 1px solid var(--stroke-soft);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+}
+
+.seg-btn {
+  min-block-size: max(1.9rem, var(--target-size));
+  padding: 0.3rem 0.78rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.seg-btn:hover:not(:disabled) { color: var(--text); }
+
+.seg-btn[aria-pressed="true"] {
+  background: var(--glass-elev);
+  color: var(--text);
+  box-shadow: 0 2px 8px -2px var(--drop), inset 0 1px 0 var(--rim-top);
+}
+
+/* ── Tarjetas de efectos ── */
+.opt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.7rem;
+}
+
+.opt-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-block-size: 5.5rem;
+  padding: 0.9rem 0.95rem;
+  border-radius: var(--radius-lg);
+  text-align: start;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.16s ease;
+}
+
+.opt-card:hover,
+.btn-glass:hover:not(:disabled) { transform: translateY(-1px); }
+
+.opt-card:active,
+.btn-glass:active:not(:disabled) { transform: scale(0.985); }
+
+.opt-card[aria-pressed="true"] {
+  border-color: transparent;
+  box-shadow:
+    -6px -6px 18px -4px rgba(239, 68, 68, 0.18),
+    6px -6px 18px -4px rgba(251, 191, 36, 0.16),
+    6px 6px 18px -4px rgba(34, 197, 94, 0.16),
+    -6px 6px 18px -4px rgba(59, 130, 246, 0.18),
+    0 10px 24px -10px var(--drop);
+}
+
+.glint-target::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    130px circle at var(--mx, 50%) var(--my, 15%),
+    rgba(255, 255, 255, calc(var(--glint-strength) * var(--glint-a))),
+    transparent 72%
+  );
+  transition: --glint-a 0.24s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glint-target:hover { --glint-a: 1; }
+}
+
+.opt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  inline-size: 100%;
+  gap: 0.4rem;
+}
+
+.opt-glyph {
+  color: var(--text-muted);
+  opacity: 0.92;
+}
+
+.opt-card[aria-pressed="true"] .opt-glyph {
+  color: var(--text);
+  opacity: 1;
+}
+
+.opt-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.14rem 0.48rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--ok) 15%, transparent);
+  color: var(--ok);
+  border: 1px solid color-mix(in oklab, var(--ok) 28%, transparent);
+}
+
+.opt-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.opt-desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 0.18rem;
+}
+
+@container workspace (max-inline-size: 28rem) {
+  .opt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Grupos de ajustes / Wi-Fi ── */
+.settings-group {
+  border-radius: var(--radius-lg);
+  padding: 1.05rem 1.15rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.85rem;
+}
+
+.field { display: grid; gap: 0.35rem; }
+.field label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.glass-input {
+  inline-size: 100%;
+  min-block-size: max(2.55rem, var(--target-size));
+  padding: 0.48rem 0.82rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke-soft);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.875rem;
+  box-shadow: inset 0 1px 0 var(--rim-top), inset 0 -1px 1px var(--rim-bot);
+}
+
+.glass-input:focus { border-color: var(--accent-solid); }
+
+.pass-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pass-wrap .glass-input { padding-inline-end: 2.8rem; }
+
+.pass-eye {
+  position: absolute;
+  inset-inline-end: 0.3rem;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.sys-list { display: grid; }
+
+.sys-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.72rem;
+}
+
+.sys-row + .sys-row { border-block-start: 1px solid var(--sep); }
+
+.sys-title { font-size: 0.875rem; font-weight: 500; }
+.sys-meta { font-size: 0.8125rem; color: var(--text-muted); }
+
+.btn-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-block-size: max(2.2rem, var(--target-size));
+  padding: 0.42rem 0.95rem;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-glass:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-solid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-block-size: max(2.2rem, var(--target-size));
+  padding: 0.42rem 1.05rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-solid);
+  background: var(--accent-solid);
+  color: var(--accent-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -4px var(--drop), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-danger {
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border-color: color-mix(in oklab, var(--danger) 24%, transparent);
+}
+
+.wifi-list {
+  display: grid;
+  gap: 0.45rem;
+  max-block-size: 16rem;
+  overflow-y: auto;
+}
+
+.wifi-net {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.62rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke-soft);
+  background: var(--glass-mid);
+  cursor: pointer;
+  text-align: start;
+}
+
+.wifi-net:hover { background: var(--glass-elev); }
+
+.changelog-list {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* ── Dialogos ── */
+dialog:modal { overscroll-behavior: contain; }
+dialog::backdrop {
+  background-color: rgba(6, 10, 18, 0.46);
+  backdrop-filter: blur(10px);
+}
+
+dialog {
+  inline-size: min(30rem, calc(100% - 1.5rem));
+  max-block-size: calc(100dvb - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-xl);
+  background: var(--glass-dlg);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: url(#lg-refract) blur(26px) saturate(190%);
+  box-shadow: 0 24px 64px -12px var(--drop), inset 0 1.5px 1px var(--rim-top);
+  color: var(--text);
+}
+
+.dialog-body {
+  padding: 1.2rem 1.3rem;
+  display: grid;
+  gap: 1rem;
+  overflow-y: auto;
+  max-block-size: calc(100dvb - 2.5rem);
+}
+
+.dialog-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dialog-hdr h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+
+.icon-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: max(2rem, var(--target-size));
+  block-size: max(2rem, var(--target-size));
+  border-radius: 50%;
+  border: 1px solid var(--stroke);
+  background: var(--glass-mid);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dialog-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dialog-row .glass-input { flex: 1 1 10rem; }
+
+.scan-progress { display: grid; gap: 0.35rem; }
+.scan-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.scan-track {
+  inline-size: 100%;
+  block-size: 0.32rem;
+  border-radius: var(--radius-pill);
+  background: var(--sep);
+  overflow: hidden;
+}
+
+.scan-fill {
+  inline-size: 0%;
+  block-size: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent-solid);
+  transition: inline-size 0.2s ease;
+}
+
+.clocks-list { display: grid; gap: 0.45rem; }
+
+.clock-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke-soft);
+  background: var(--glass-mid);
+}
+
+.clock-item[data-current="true"] {
+  border-color: var(--stroke);
+  background: var(--glass-elev);
+}
+
+.clock-pick {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: start;
+  cursor: pointer;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.clock-ip { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+.clock-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+.adv-scan {
+  border-block-start: 1px solid var(--sep);
+  padding-block-start: 0.75rem;
+}
+
+.adv-scan summary {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: var(--target-size);
+}
+
+.adv-scan summary::-webkit-details-marker { display: none; }
+.adv-scan-body { display: grid; gap: 0.6rem; padding-block-start: 0.65rem; }
+
+.cidr-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.cidr-chip {
+  min-block-size: max(1.75rem, var(--target-size));
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--stroke-soft);
+  background: var(--glass-mid);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  inset-inline: 0;
+  margin-inline: auto;
+  inset-block-end: 1.5rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  inline-size: max-content;
+  max-inline-size: min(26rem, calc(100% - 1.5rem));
+  padding: 0.62rem 1.05rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.toast-icon { flex: none; }
+.toast[data-tone="ok"] .toast-icon { color: var(--ok); }
+.toast[data-tone="err"] .toast-icon { color: var(--danger); }
+
+/* ── Responsive Movil ── */
+@media (max-width: 56rem) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding-block: 0.9rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .stage-col {
+    position: sticky;
+    top: 4.1rem;
+    z-index: 15;
+  }
+
+  .tablist {
+    position: fixed;
+    inset-block-end: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    inset-inline: max(0.75rem, env(safe-area-inset-left, 0px)) max(0.75rem, env(safe-area-inset-right, 0px));
+    max-inline-size: 32rem;
+    margin-inline: auto;
+    z-index: 30;
+  }
+
+  .tablist [role="tab"] {
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.72rem;
+    min-block-size: 3rem;
+  }
+
+  .toast {
+    inset-block-end: calc(5.15rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  dialog {
+    margin-block-end: 0;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@media (max-width: 30rem) {
+  .topbar-inner { gap: 0.35rem; }
+  .brand { font-size: 0.84rem; }
+  .device-pill { padding: 0.28rem 0.52rem; font-size: 0.74rem; max-inline-size: 10.2rem; }
+  .apply-btn { padding: 0.28rem 0.65rem; font-size: 0.74rem; }
+}
+</style>
+</head>
+<body>
+<svg aria-hidden="true" width="0" height="0" style="position:absolute;pointer-events:none">
+  <filter id="lg-refract" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.011 0.014" numOctaves="2" seed="3" result="noise"/>
+    <feGaussianBlur in="noise" stdDeviation="3.5" result="softNoise"/>
+    <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="11" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<div class="ambient-scene" aria-hidden="true">
+  <div class="ambient-orb orb-1"></div>
+  <div class="ambient-orb orb-2"></div>
+  <div class="ambient-orb orb-3"></div>
+  <div class="ambient-orb orb-4"></div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1 class="brand">
+      <span class="brand-dots" aria-hidden="true">
+        <i style="background:#ef4444"></i>
+        <i style="background:#22c55e"></i>
+        <i style="background:#3b82f6"></i>
+        <i style="background:#f59e0b"></i>
+      </span>
+      <span>Focos C7 Studio</span>
+    </h1>
+
+    <div class="topbar-actions">
+      <button type="button" class="theme-btn glass-btn-base glint-target" id="btn_theme" onclick="toggleThemeQuick()">
+        <span class="theme-to-light">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M8 1.5V3M8 13V14.5M1.5 8H3M13 8H14.5M3.4 3.4L4.5 4.5M11.5 11.5L12.6 12.6M12.6 3.4L11.5 4.5M4.5 11.5L3.4 12.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+          </svg>
+          <span class="sr-only">Cambiar a tema claro</span>
+        </span>
+        <span class="theme-to-dark">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M13.2 9.8A5.6 5.6 0 0 1 6.2 2.8A5.6 5.6 0 1 0 13.2 9.8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+          <span class="sr-only">Cambiar a tema oscuro</span>
+        </span>
+      </button>
+
+      <button type="button" class="device-pill glass-btn-base glint-target" id="btn_device_pill" data-online="false" aria-haspopup="dialog" onclick="$('device_dialog').showModal()">
+        <svg class="status-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5" fill="currentColor" opacity="0.25"/>
+          <circle cx="8" cy="8" r="3" fill="currentColor"/>
+        </svg>
+        <span class="device-label num" id="device_pill_lbl">Conectar</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <button type="button" class="apply-btn glass-btn-base glint-target" id="btn_apply" data-dirty="false" onclick="pushConfigToDevice()">
+        <span class="dirty-mark" aria-hidden="true"></span>
+        <span>Aplicar</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="app-shell">
+  <aside class="stage-col">
+    <div class="bulbs-stage">
+      <div class="bulbs-bezel">
+        <div class="canvas-well">
+          <canvas id="bulbs_canvas" width="640" height="360" role="img" aria-label="Vista previa en vivo de 8 focos C7 Holiday Time"></canvas>
+          <div class="stage-hud">
+            <span id="hud_pattern_name"><strong>1 · Persecución</strong></span>
+            <div class="hud-badges">
+              <span class="hud-pill num" id="hud_speed">150 ms</span>
+              <span class="hud-pill" id="hud_ddp_badge" hidden data-tone="ddp">xLights DDP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-controls lg-surface">
+      <div class="slider-block">
+        <div class="slider-hdr">
+          <label for="speed_slider">Velocidad del paso</label>
+          <output id="speed_val" for="speed_slider" class="num">150 ms</output>
+        </div>
+        <input type="range" class="glass-range" id="speed_slider" min="30" max="600" step="5" value="150">
+        <div class="speed-presets">
+          <button type="button" class="seg-btn" id="spd_80" aria-pressed="false" onclick="setSpeedPreset(80)">Rápida · 80</button>
+          <button type="button" class="seg-btn" id="spd_150" aria-pressed="true" onclick="setSpeedPreset(150)">Media · 150</button>
+          <button type="button" class="seg-btn" id="spd_300" aria-pressed="false" onclick="setSpeedPreset(300)">Lenta · 300</button>
+        </div>
+      </div>
+
+      <div class="divider-line" role="separator"></div>
+
+      <label class="switch-row">
+        <span>Modo aleatorio automático</span>
+        <input type="checkbox" switch id="sw_random">
+      </label>
+
+      <div class="random-range" id="random_range_box" hidden>
+        <div class="mini-field">
+          <label for="ale_min_in">Mínimo (seg)</label>
+          <input type="number" class="glass-input num" id="ale_min_in" min="5" max="3600" value="30">
+        </div>
+        <div class="mini-field">
+          <label for="ale_max_in">Máximo (seg)</label>
+          <input type="number" class="glass-input num" id="ale_max_in" min="5" max="3600" value="60">
+        </div>
+      </div>
+
+      <div class="divider-line" role="separator"></div>
+
+      <label class="switch-row">
+        <span>Invertir dirección (8 → 1)</span>
+        <input type="checkbox" switch id="sw_invert">
+      </label>
+    </div>
+  </aside>
+
+  <section class="workspace-col">
+    <div class="tablist lg-surface" id="main_tablist" role="tablist" aria-label="Secciones">
+      <button type="button" role="tab" id="tab_effects" aria-selected="true" onclick="switchTab('effects')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 1.8L9.6 6.2L14 7.8L9.6 9.4L8 13.8L6.4 9.4L2 7.8L6.4 6.2L8 1.8Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+        </svg>
+        <span>Efectos</span>
+      </button>
+
+      <button type="button" role="tab" id="tab_wifi" aria-selected="false" onclick="switchTab('wifi')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M2 6.2C5.4 3.1 10.6 3.1 14 6.2M4.3 8.8C6.4 6.8 9.6 6.8 11.7 8.8M6.6 11.4C7.4 10.6 8.6 10.6 9.4 11.4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+          <circle cx="8" cy="13.2" r="0.9" fill="currentColor"/>
+        </svg>
+        <span>Red Wi-Fi</span>
+      </button>
+
+      <button type="button" role="tab" id="tab_settings" aria-selected="false" onclick="switchTab('settings')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M3 5H13M3 11H13" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+          <circle cx="6" cy="5" r="1.5" fill="var(--bg)" stroke="currentColor" stroke-width="1.35"/>
+          <circle cx="10.5" cy="11" r="1.5" fill="var(--bg)" stroke="currentColor" stroke-width="1.35"/>
+        </svg>
+        <span>Sistema y OTA</span>
+      </button>
+    </div>
+
+    <div class="panels-stack">
+      <section role="tabpanel" id="panel_effects" aria-labelledby="tab_effects">
+        <div class="panel-inner">
+          <div class="panel-hdr">
+            <h2>Secuencias de iluminación (14)</h2>
+            <div class="seg-group" role="group" aria-label="Filtro de efectos">
+              <button type="button" class="seg-btn" id="efil_all" aria-pressed="true" onclick="setEffectFilter('all')">Todos (14)</button>
+              <button type="button" class="seg-btn" id="efil_classic" aria-pressed="false" onclick="setEffectFilter('classic')">Clásicos (8)</button>
+              <button type="button" class="seg-btn" id="efil_new" aria-pressed="false" onclick="setEffectFilter('new')">Nuevos (6)</button>
+            </div>
+          </div>
+          <div class="opt-grid" id="effects_grid"></div>
+        </div>
+      </section>
+
+      <section role="tabpanel" id="panel_wifi" aria-labelledby="tab_wifi" hidden="until-found">
+        <div class="panel-inner">
+          <div class="panel-hdr">
+            <h2>Configuración Wi-Fi</h2>
+            <button type="button" class="btn-glass glass-btn-base glint-target" id="btn_scan_wifi" onclick="scanWifiNetworks()">Buscar redes cercanas</button>
+          </div>
+
+          <div class="settings-group lg-surface">
+            <h3>Estado de red actual</h3>
+            <div class="sys-list">
+              <div class="sys-row">
+                <div>
+                  <div class="sys-title" id="wifi_cur_ssid">Sin conexión a controlador</div>
+                  <div class="sys-meta num" id="wifi_cur_meta">Conecta un ESP8266 arriba para ver la señal</div>
+                </div>
+                <span class="hud-pill" id="wifi_ap_pill">AP FocosC7</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group lg-surface" id="wifi_scan_card" hidden>
+            <h3>Redes disponibles</h3>
+            <div class="wifi-list" id="wifi_scan_list"></div>
+          </div>
+
+          <div class="settings-group lg-surface">
+            <h3>Cambiar red Wi-Fi del controlador</h3>
+            <form class="form-grid" onsubmit="event.preventDefault(); saveWifiCredentials();">
+              <div class="field">
+                <label for="wifi_ssid_in">Nombre de la red (SSID)</label>
+                <input type="text" class="glass-input" id="wifi_ssid_in" maxlength="32" placeholder="Ej. MiCasa_2.4G" required>
+              </div>
+              <div class="field">
+                <label for="wifi_pass_in">Contraseña</label>
+                <div class="pass-wrap">
+                  <input type="password" class="glass-input" id="wifi_pass_in" maxlength="64" placeholder="Vacía si es red abierta">
+                  <button type="button" class="pass-eye" onclick="toggleWifiPassVis()" id="btn_eye_pass">Ver</button>
+                </div>
+              </div>
+              <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:0.6rem;justify-content:space-between;align-items:center">
+                <button type="button" class="btn-glass glass-btn-base btn-danger" onclick="requestResetWifi()">Olvidar red (abrir FocosC7)</button>
+                <button type="submit" class="btn-solid">Guardar Wi-Fi y reiniciar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section role="tabpanel" id="panel_settings" aria-labelledby="tab_settings" hidden="until-found">
+        <div class="panel-inner">
+          <div class="panel-hdr">
+            <h2>Sistema y OTA</h2>
+          </div>
+
+          <div class="settings-group lg-surface">
+            <h3>Apariencia</h3>
+            <div class="sys-row" style="padding-block:0">
+              <div>
+                <div class="sys-title">Tema de la interfaz</div>
+                <div class="sys-meta" id="theme_meta">Según el sistema</div>
+              </div>
+              <div class="seg-group" role="group" aria-label="Tema de la interfaz">
+                <button type="button" class="seg-btn" id="tmode_system" aria-pressed="true" onclick="setThemePreference('system')">Sistema</button>
+                <button type="button" class="seg-btn" id="tmode_light" aria-pressed="false" onclick="setThemePreference('light')">Claro</button>
+                <button type="button" class="seg-btn" id="tmode_dark" aria-pressed="false" onclick="setThemePreference('dark')">Oscuro</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group lg-surface">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+              <h3>Actualización inalámbrica (Cloud OTA · GitHub)</h3>
+              <button type="button" class="btn-glass glass-btn-base glint-target" onclick="fetchCloudVersion(true)">Revisar versión</button>
+            </div>
+            <div class="sys-list">
+              <div class="sys-row">
+                <div>
+                  <div class="sys-title">Firmware del controlador</div>
+                  <div class="sys-meta num" id="sys_fw_meta">Conectado: v1.0.0</div>
+                </div>
+                <button type="button" class="btn-solid" onclick="requestDeviceOta()">Actualizar por OTA</button>
+              </div>
+            </div>
+            <div id="changelog_wrap" hidden>
+              <div class="sys-meta" style="margin-bottom:0.35rem" id="changelog_stamp"></div>
+              <ul class="changelog-list" id="changelog_list"></ul>
+            </div>
+          </div>
+
+          <div class="settings-group lg-surface">
+            <h3>Controlador y protocolo</h3>
+            <div class="sys-list">
+              <div class="sys-row">
+                <div>
+                  <div class="sys-title">xLights / DDP (UDP 4048)</div>
+                  <div class="sys-meta num" id="sys_ddp_meta">En espera de paquetes · 8 canales Single Color</div>
+                </div>
+                <span class="hud-pill num" id="sys_heap_pill">Heap: --</span>
+              </div>
+              <div class="sys-row">
+                <div>
+                  <div class="sys-title">Instalar desde cero por USB (Chrome/Edge)</div>
+                  <div class="sys-meta">Flashea un ESP8266 nuevo sin usar Arduino IDE</div>
+                </div>
+                <div id="usb_flash_slot"></div>
+              </div>
+              <div class="sys-row">
+                <div>
+                  <div class="sys-title">Panel local de respaldo</div>
+                  <div class="sys-meta">Abre la interfaz ligera hospedada dentro del ESP8266</div>
+                </div>
+                <button type="button" class="btn-glass glass-btn-base glint-target" onclick="openLocalFallback()">Abrir local</button>
+              </div>
+              <div class="sys-row">
+                <div>
+                  <div class="sys-title">Reiniciar ESP8266</div>
+                  <div class="sys-meta">Reinicio rápido conservando los ajustes en EEPROM</div>
+                </div>
+                <button type="button" class="btn-glass glass-btn-base glint-target" onclick="requestDeviceReboot()">Reiniciar</button>
+              </div>
+            </div>
+
+            <details class="adv-scan">
+              <summary>
+                <span>Flujo para publicar OTAs desde Arduino IDE</span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </summary>
+              <div class="adv-scan-body" style="font-size:0.8125rem;color:var(--text-muted)">
+                <div>1. Abre <code>focos_c7/focos_c7.ino</code> en Arduino IDE (placa NodeMCU 1.0, Flash 4MB 2M/2M).</div>
+                <div>2. Edita el código y presiona <strong>Programa → Exportar binario compilado</strong> (<code>Ctrl+Alt+S</code>).</div>
+                <div>3. Sube <code>firmware.bin</code> y <code>version.json</code> a GitHub (o ejecuta <code>python publicar_ota.py</code>) y presiona <strong>Actualizar por OTA</strong> aquí.</div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<dialog id="device_dialog" closedby="any" aria-labelledby="device_dialog_title">
+  <div class="dialog-body">
+    <div class="dialog-hdr">
+      <h2 id="device_dialog_title">Controladores Focos C7</h2>
+      <button type="button" class="icon-close" onclick="$('device_dialog').close()" aria-label="Cerrar">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <form class="dialog-row" onsubmit="event.preventDefault(); connectManualIpFromDialog();">
+      <label class="sr-only" for="manual_ip_in">Dirección IP del ESP8266</label>
+      <input type="text" class="glass-input num" id="manual_ip_in" inputmode="decimal" placeholder="192.168.1.50 o 192.168.4.1" autofocus>
+      <button type="submit" class="btn-solid">Conectar</button>
+    </form>
+
+    <div class="dialog-row">
+      <button type="button" class="btn-glass glass-btn-base glint-target" id="btn_start_scan" onclick="startUniversalScan()">Buscar en red local</button>
+      <button type="button" class="btn-glass glass-btn-base glint-target btn-danger" id="btn_stop_scan" onclick="stopUniversalScan()" hidden>Detener</button>
+    </div>
+
+    <div class="scan-progress" id="scan_prog_wrap" hidden>
+      <div class="scan-meta">
+        <span id="scan_prog_lbl">Buscando...</span>
+        <span class="num" id="scan_prog_pct">0%</span>
+      </div>
+      <div class="scan-track">
+        <div class="scan-fill" id="scan_prog_fill"></div>
+      </div>
+    </div>
+
+    <div class="clocks-list" id="found_devices"></div>
+
+    <details class="adv-scan">
+      <summary>
+        <span>Escaneo por rango personalizado</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </summary>
+      <div class="adv-scan-body">
+        <form class="dialog-row" onsubmit="event.preventDefault(); startCustomRangeScan();">
+          <label class="sr-only" for="scan_custom_range">Rango de IPs</label>
+          <input type="text" class="glass-input num" id="scan_custom_range" placeholder="192.168.68.1-254">
+          <button type="submit" class="btn-glass glass-btn-base glint-target">Escanear</button>
+        </form>
+        <div class="cidr-chips">
+          <button type="button" class="cidr-chip num" onclick="setRangePreset('192.168.68.1-192.168.68.254')">192.168.68.x</button>
+          <button type="button" class="cidr-chip num" onclick="setRangePreset('192.168.1.1-192.168.1.254')">192.168.1.x</button>
+          <button type="button" class="cidr-chip num" onclick="setRangePreset('192.168.0.1-192.168.0.254')">192.168.0.x</button>
+          <button type="button" class="cidr-chip num" onclick="setRangePreset('192.168.100.1-192.168.100.254')">192.168.100.x</button>
+        </div>
+      </div>
+    </details>
+  </div>
+</dialog>
+
+<dialog id="confirm_dialog" closedby="closerequest" aria-labelledby="confirm_dialog_title">
+  <div class="dialog-body">
+    <div class="dialog-hdr">
+      <h2 id="confirm_dialog_title">Confirmar acción</h2>
+    </div>
+    <p id="confirm_dialog_msg" style="margin:0;color:var(--text-muted);font-size:0.875rem"></p>
+    <form method="dialog" class="dialog-actions">
+      <button type="submit" value="cancel" class="btn-glass glass-btn-base" autofocus>Cancelar</button>
+      <button type="submit" value="confirm" id="confirm_dialog_ok" class="btn-solid">Continuar</button>
+    </form>
+  </div>
+</dialog>
+
+<div class="toast lg-surface" id="floating_toast" role="status" aria-live="polite" data-tone="ok" hidden>
+  <svg class="toast-icon" id="toast_icon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M5.5 8.2L7.2 9.9L10.8 6.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span id="toast_msg"></span>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+
+var REPO_OWNER = 'AlexGremory255';
+var REPO_NAME  = 'focos-c7';
+var LS_IP_KEY  = 'focos_c7_ip';
+var SNAP_KEYS  = ['patron', 'velocidad', 'aleatorio', 'aleMin', 'aleMax', 'invertir'];
+
+var BULB_PALETTE = [
+  { name: 'Rojo',     core: '#fff1f2', mid: '#ef4444', halo: 'rgba(255, 55, 55, 0.92)',  off: '#3a1216' },
+  { name: 'Verde',    core: '#f0fdf4', mid: '#22c55e', halo: 'rgba(34, 225, 105, 0.90)', off: '#10341e' },
+  { name: 'Azul',     core: '#eff6ff', mid: '#3b82f6', halo: 'rgba(56, 145, 255, 0.92)', off: '#132445' },
+  { name: 'Amarillo', core: '#fefce8', mid: '#f59e0b', halo: 'rgba(255, 200, 35, 0.92)', off: '#3c2a0b' }
+];
+
+var EFFECTS = [
+  { id: 0,  cat: 'classic', name: 'Apagar',           desc: 'Todos los focos apagados',               icon: 'M8 2.5V8M5 4.2A4.8 4.8 0 1 0 11 4.2' },
+  { id: 1,  cat: 'classic', name: 'Persecución',      desc: 'Un foco recorre del 1 al 8',             icon: 'M2 8H14M10.5 4.5L14 8L10.5 11.5' },
+  { id: 2,  cat: 'classic', name: 'Ping-pong',        desc: 'Vaivén continuo de punta a punta',       icon: 'M3 5.5H13M10.5 3L13 5.5L10.5 8M13 10.5H3M5.5 8L3 10.5L5.5 13' },
+  { id: 3,  cat: 'classic', name: 'Alternado',        desc: 'Pares e impares intercalados',           icon: 'M3 8A1 1 0 1 0 3 8.1M8 8A1 1 0 1 0 8 8.1M13 8A1 1 0 1 0 13 8.1' },
+  { id: 4,  cat: 'classic', name: 'Llenar y vaciar',  desc: 'Se acumulan del 1 al 8 y vacían',        icon: 'M2.5 12V9M6 12V7M9.5 12V5M13 12V3' },
+  { id: 5,  cat: 'classic', name: 'Chispas',          desc: 'Destellos aleatorios por toda la tira',  icon: 'M8 2L9.2 6.2L13.5 7.5L9.2 8.8L8 13L6.8 8.8L2.5 7.5L6.8 6.2Z' },
+  { id: 6,  cat: 'classic', name: 'Parpadeo',         desc: 'Toda la serie enciende y apaga',         icon: 'M8 2V4M8 12V14M2 8H4M12 8H14M4 4L5.3 5.3M10.7 10.7L12 12' },
+  { id: 7,  cat: 'classic', name: 'Encender todo',    desc: 'Iluminación fija de los 8 focos',        icon: 'M8 3.5A4.5 4.5 0 1 0 8 12.5A4.5 4.5 0 1 0 8 3.5Z' },
+  { id: 8,  cat: 'new',     name: 'Por color',        desc: 'Rojos → Verdes → Azules → Amarillos',    icon: 'M4 4H7V7H4ZM9 4H12V7H9ZM4 9H7V12H4ZM9 9H12V12H9Z' },
+  { id: 9,  cat: 'new',     name: 'Cortina',          desc: 'Abre desde el centro hacia las orillas', icon: 'M6 4L3 8L6 12M10 4L13 8L10 12' },
+  { id: 10, cat: 'new',     name: 'Cometa triple',    desc: 'Estela continua de 3 focos viajeros',    icon: 'M2 10C5.5 10 8.5 7 13.5 4.5M10.5 4.2H13.8V7.5' },
+  { id: 11, cat: 'new',     name: 'Hueco viajero',    desc: '7 encendidos con 1 sombra rebotando',    icon: 'M2 8H6M10 8H14M8 8A1.4 1.4 0 1 0 8 8.01' },
+  { id: 12, cat: 'new',     name: 'Choque dual',      desc: 'Dos haces chocan al centro en onda',     icon: 'M2 8H6.5M4.5 5.8L6.7 8L4.5 10.2M14 8H9.5M11.5 5.8L9.3 8L11.5 10.2' },
+  { id: 13, cat: 'new',     name: 'Cascada espejo',   desc: 'Llena simétrica de extremos al centro',  icon: 'M2 4V12M14 4V12M5 6V10M11 6V10M8 7V9' }
+];
+
+var HOST_NAME = location.hostname || '';
+var IS_LOCAL_HOST = (
+  location.protocol === 'http:' &&
+  HOST_NAME !== '' &&
+  HOST_NAME !== 'localhost' &&
+  HOST_NAME !== '127.0.0.1' &&
+  HOST_NAME.indexOf('github.io') < 0
+);
+
+var urlIpParam = '';
+try { urlIpParam = new URLSearchParams(location.search).get('ip') || ''; } catch(e){}
+
+var state = {
+  patron: 1,
+  simPatron: 1,
+  simVelocidad: 150,
+  velocidad: 150,
+  aleatorio: 0,
+  aleMin: 30,
+  aleMax: 60,
+  invertir: 0,
+  ddp: 0,
+  ap: 0,
+  ssid: '',
+  rssi: 0,
+  heap: 0,
+  fwVer: '1.0.0',
+  latestCloudVer: '',
+  connectedIp: urlIpParam || (IS_LOCAL_HOST ? HOST_NAME : (localStorage.getItem(LS_IP_KEY) || '')),
+  effectFilter: 'all',
+  activeTab: 'effects'
+};
+
+var savedSnapshot = null;
+var deviceCache = {};
+var toastTimer = null;
+
+// ── Tema claro/oscuro ──
+var osDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+function getStoredTheme(){
+  try {
+    var v = localStorage.getItem('color-scheme');
+    return (v === 'light' || v === 'dark') ? v : null;
+  } catch(e){ return null; }
+}
+
+function getEffectiveTheme(){
+  var s = getStoredTheme();
+  return s || ((osDarkQuery && osDarkQuery.matches) ? 'dark' : 'light');
+}
+
+function syncThemeControls(){
+  var stored = getStoredTheme();
+  var osIsDark = Boolean(osDarkQuery && osDarkQuery.matches);
+  var meta = document.querySelector('meta[name="color-scheme"]');
+  if(meta) meta.setAttribute('content', stored || 'light dark');
+  var mode = stored || 'system';
+  ['system', 'light', 'dark'].forEach(function(k){
+    var b = $('tmode_' + k);
+    if(b) b.setAttribute('aria-pressed', mode === k ? 'true' : 'false');
+  });
+  var tm = $('theme_meta');
+  if(tm){
+    tm.textContent = stored === 'light' ? 'Modo claro activo'
+      : stored === 'dark' ? 'Modo oscuro activo'
+      : ('Según el sistema · ' + (osIsDark ? 'Oscuro' : 'Claro'));
+  }
+}
+
+function setThemePreference(mode){
+  try {
+    if(mode === 'light' || mode === 'dark') localStorage.setItem('color-scheme', mode);
+    else localStorage.removeItem('color-scheme');
+  } catch(e){}
+  syncThemeControls();
+}
+
+function toggleThemeQuick(){
+  setThemePreference(getEffectiveTheme() === 'dark' ? 'light' : 'dark');
+}
+
+if(osDarkQuery){
+  osDarkQuery.addEventListener('change', function(){ if(!getStoredTheme()) syncThemeControls(); });
+}
+syncThemeControls();
+
+// ── Toast & Confirmacion ──
+function showToast(msg, isErr){
+  var ft = $('floating_toast'), txt = $('toast_msg'), ico = $('toast_icon');
+  if(!ft || !txt) return;
+  ft.hidden = false;
+  ft.setAttribute('data-tone', isErr ? 'err' : 'ok');
+  txt.textContent = msg;
+  if(ico){
+    ico.innerHTML = isErr
+      ? '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+      : '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8.2L7.2 9.9L10.8 6.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ ft.hidden = true; }, 3800);
+}
+
+function openConfirmDialog(title, message, okLabel, isDanger, onConfirm){
+  var dlg = $('confirm_dialog');
+  $('confirm_dialog_title').textContent = title;
+  $('confirm_dialog_msg').textContent = message;
+  var okBtn = $('confirm_dialog_ok');
+  okBtn.textContent = okLabel || 'Continuar';
+  okBtn.className = isDanger ? 'btn-glass glass-btn-base btn-danger' : 'btn-solid';
+  dlg.onclose = function(){
+    if(dlg.returnValue === 'confirm' && typeof onConfirm === 'function') onConfirm();
+  };
+  dlg.showModal();
+}
+
+// ── Pestañas ──
+function switchTab(name){
+  state.activeTab = name;
+  ['effects', 'wifi', 'settings'].forEach(function(k){
+    var t = $('tab_' + k), p = $('panel_' + k);
+    var active = (k === name);
+    if(t) t.setAttribute('aria-selected', active ? 'true' : 'false');
+    if(p){
+      if(active) p.removeAttribute('hidden');
+      else p.setAttribute('hidden', 'until-found');
+    }
+  });
+}
+
+// ── Snapshot / Dirty ──
+function takeSnap(){
+  var s = {};
+  SNAP_KEYS.forEach(function(k){ s[k] = String(state[k]); });
+  return s;
+}
+
+function commitSnapshot(){
+  savedSnapshot = takeSnap();
+  updateDirtyState();
+}
+
+function updateDirtyState(){
+  var btn = $('btn_apply');
+  if(!btn || !savedSnapshot) return;
+  var cur = takeSnap();
+  var dirty = SNAP_KEYS.some(function(k){ return cur[k] !== savedSnapshot[k]; });
+  btn.setAttribute('data-dirty', dirty ? 'true' : 'false');
+}
+
+// ── Controles y Grids ──
+function setEffectFilter(cat){
+  state.effectFilter = cat;
+  ['all', 'classic', 'new'].forEach(function(k){
+    var b = $('efil_' + k);
+    if(b) b.setAttribute('aria-pressed', cat === k ? 'true' : 'false');
+  });
+  renderEffectsGrid();
+}
+
+function renderEffectsGrid(){
+  var box = $('effects_grid');
+  if(!box) return;
+  box.innerHTML = '';
+  EFFECTS.forEach(function(ef){
+    if(state.effectFilter !== 'all' && ef.cat !== state.effectFilter) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'opt-card lg-surface glint-target';
+    btn.setAttribute('aria-pressed', (!state.aleatorio && state.patron === ef.id) ? 'true' : 'false');
+    btn.onclick = function(){
+      state.aleatorio = 0;
+      state.patron = ef.id;
+      state.simPatron = ef.id;
+      state.simVelocidad = state.velocidad;
+      resetSimStep();
+      renderAllControls();
+      updateDirtyState();
+    };
+    btn.innerHTML =
+      '<div class="opt-top">' +
+        '<svg class="opt-glyph" width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+          '<path d="' + ef.icon + '" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>' +
+        (ef.cat === 'new' ? '<span class="opt-badge">Nuevo</span>' : '<span class="num" style="font-size:0.7rem;color:var(--text-dim)">#' + ef.id + '</span>') +
+      '</div>' +
+      '<div>' +
+        '<div class="opt-name">' + ef.name + '</div>' +
+        '<div class="opt-desc">' + ef.desc + '</div>' +
+      '</div>';
+    box.appendChild(btn);
+  });
+}
+
+function setSpeedPreset(ms){
+  state.aleatorio = 0;
+  state.velocidad = ms;
+  state.simVelocidad = ms;
+  state.simPatron = state.patron;
+  renderAllControls();
+  updateDirtyState();
+}
+
+function syncRangeTrack(el){
+  if(!el) return;
+  var min = Number(el.min || 30), max = Number(el.max || 600), val = Number(el.value || 150);
+  var pct = ((val - min) / (max - min)) * 100;
+  el.style.setProperty('--slider-progress', pct.toFixed(1) + '%');
+}
+
+function renderAllControls(){
+  renderEffectsGrid();
+
+  var sl = $('speed_slider');
+  if(sl){
+    sl.value = state.velocidad;
+    syncRangeTrack(sl);
+  }
+  if($('speed_val')) $('speed_val').textContent = state.velocidad + ' ms';
+
+  [80, 150, 300].forEach(function(ms){
+    var b = $('spd_' + ms);
+    if(b) b.setAttribute('aria-pressed', state.velocidad === ms ? 'true' : 'false');
+  });
+
+  if($('sw_random')) $('sw_random').checked = Boolean(state.aleatorio);
+  if($('random_range_box')) $('random_range_box').hidden = !state.aleatorio;
+  if($('ale_min_in')) $('ale_min_in').value = state.aleMin;
+  if($('ale_max_in')) $('ale_max_in').value = state.aleMax;
+  if($('sw_invert')) $('sw_invert').checked = Boolean(state.invertir);
+
+  var curEf = EFFECTS.find(function(e){ return e.id === (state.aleatorio ? state.simPatron : state.patron); }) || EFFECTS[1];
+  if($('hud_pattern_name')){
+    $('hud_pattern_name').innerHTML = (state.aleatorio ? 'Aleatorio · ' : '') + '<strong>' + curEf.id + ' · ' + curEf.name + '</strong>';
+  }
+  if($('hud_speed')){
+    $('hud_speed').textContent = (state.aleatorio ? state.simVelocidad : state.velocidad) + ' ms';
+  }
+  if($('hud_ddp_badge')){
+    $('hud_ddp_badge').hidden = !state.ddp;
+  }
+
+  // Wi-Fi y Sistema
+  if($('wifi_cur_ssid')){
+    if(state.connectedIp){
+      $('wifi_cur_ssid').textContent = state.ssid ? ('Conectado a "' + state.ssid + '"') : 'Conectado en modo AP FocosC7';
+      $('wifi_cur_meta').textContent = 'IP ' + state.connectedIp + (state.rssi ? (' · Señal ' + state.rssi + ' dBm') : '');
+      $('wifi_ap_pill').textContent = state.ap ? 'AP Respaldo Activo' : 'AP Apagado';
+    } else {
+      $('wifi_cur_ssid').textContent = 'Sin conexión a controlador';
+      $('wifi_cur_meta').textContent = 'Conecta un ESP8266 arriba para ver o cambiar su red Wi-Fi';
+      $('wifi_ap_pill').textContent = 'Desconectado';
+    }
+  }
+  if($('sys_ddp_meta')){
+    $('sys_ddp_meta').textContent = state.ddp
+      ? 'Transmitiendo secuencia xLights en vivo (UDP 4048)'
+      : 'En espera de paquetes · 8 canales Single Color (UDP 4048)';
+  }
+  if($('sys_heap_pill')){
+    $('sys_heap_pill').textContent = state.heap ? ('Heap: ' + Math.round(state.heap / 1024) + ' KB') : 'Heap: --';
+  }
+  updateFwMetaText();
+}
+
+$('speed_slider').addEventListener('input', function(){
+  state.aleatorio = 0;
+  state.velocidad = Number(this.value);
+  state.simVelocidad = state.velocidad;
+  state.simPatron = state.patron;
+  syncRangeTrack(this);
+  $('speed_val').textContent = state.velocidad + ' ms';
+  if($('hud_speed')) $('hud_speed').textContent = state.velocidad + ' ms';
+  [80, 150, 300].forEach(function(ms){
+    var b = $('spd_' + ms);
+    if(b) b.setAttribute('aria-pressed', state.velocidad === ms ? 'true' : 'false');
+  });
+  if($('sw_random')) $('sw_random').checked = false;
+  if($('random_range_box')) $('random_range_box').hidden = true;
+  renderEffectsGrid();
+  updateDirtyState();
+});
+
+$('sw_random').addEventListener('change', function(){
+  state.aleatorio = this.checked ? 1 : 0;
+  if(state.aleatorio){
+    pickNextRandomSim();
+  } else {
+    state.simPatron = state.patron;
+    state.simVelocidad = state.velocidad;
+    resetSimStep();
+  }
+  renderAllControls();
+  updateDirtyState();
+});
+
+$('ale_min_in').addEventListener('change', function(){
+  var mn = Math.max(5, Math.min(3600, parseInt(this.value || 30, 10) || 30));
+  state.aleMin = mn;
+  if(state.aleMax < mn) state.aleMax = mn;
+  this.value = state.aleMin;
+  $('ale_max_in').value = state.aleMax;
+  updateDirtyState();
+});
+
+$('ale_max_in').addEventListener('change', function(){
+  var mx = Math.max(state.aleMin, Math.min(3600, parseInt(this.value || 60, 10) || 60));
+  state.aleMax = mx;
+  this.value = state.aleMax;
+  updateDirtyState();
+});
+
+$('sw_invert').addEventListener('change', function(){
+  state.invertir = this.checked ? 1 : 0;
+  updateDirtyState();
+});
+
+// Efecto glint especular con el cursor
+document.addEventListener('pointermove', function(e){
+  var el = e.target && e.target.closest ? e.target.closest('.glint-target') : null;
+  if(!el) return;
+  var r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}, { passive: true });
+
+// ── Simulador en vivo de 8 focos Holiday Time C7 ──
+var simStep = 0;
+var simLogical = [false, false, false, false, false, false, false, false];
+var simGlow = [0, 0, 0, 0, 0, 0, 0, 0];
+var simLastStepTs = 0;
+var simNextRandomTs = 0;
+var simLastAnimTs = 0;
+var SIM_SPEEDS = [70, 100, 140, 190, 260, 340];
+
+function resetSimStep(){
+  simStep = 0;
+  simLastStepTs = 0;
+}
+
+function pickNextRandomSim(){
+  var cand;
+  do { cand = 1 + Math.floor(Math.random() * 13); } while(cand === state.simPatron);
+  state.simPatron = cand;
+  state.simVelocidad = SIM_SPEEDS[Math.floor(Math.random() * SIM_SPEEDS.length)];
+  resetSimStep();
+  var minMs = Math.max(5, state.aleMin) * 1000;
+  var maxMs = Math.max(minMs, state.aleMax * 1000);
+  simNextRandomTs = performance.now() + minMs + Math.random() * (maxMs - minMs);
+  if($('hud_pattern_name')){
+    var ef = EFFECTS.find(function(x){ return x.id === state.simPatron; });
+    if(ef) $('hud_pattern_name').innerHTML = 'Aleatorio · <strong>' + ef.id + ' · ' + ef.name + '</strong>';
+  }
+  if($('hud_speed')) $('hud_speed').textContent = state.simVelocidad + ' ms';
+}
+
+function stepPattern(pat){
+  var i, k, p, pos, d, s, head, dist;
+  switch(pat){
+    case 0:
+      for(i = 0; i < 8; i++) simLogical[i] = false;
+      break;
+    case 1:
+      for(i = 0; i < 8; i++) simLogical[i] = (i === (simStep % 8));
+      simStep++;
+      break;
+    case 2:
+      p = simStep % 14;
+      pos = (p < 8) ? p : (14 - p);
+      for(i = 0; i < 8; i++) simLogical[i] = (i === pos);
+      simStep++;
+      break;
+    case 3:
+      for(i = 0; i < 8; i++) simLogical[i] = ((i + simStep) % 2 === 0);
+      simStep++;
+      break;
+    case 4:
+      k = simStep % 16;
+      for(i = 0; i < 8; i++) simLogical[i] = (k < 8) ? (i <= k) : (i > k - 8);
+      simStep++;
+      break;
+    case 5:
+      var any = false;
+      for(i = 0; i < 8; i++){
+        var on = Math.floor(Math.random() * 3) === 0;
+        if(on) any = true;
+        simLogical[i] = on;
+      }
+      if(!any) simLogical[Math.floor(Math.random() * 8)] = true;
+      simStep++;
+      break;
+    case 6:
+      var st = (simStep % 2 === 0);
+      for(i = 0; i < 8; i++) simLogical[i] = st;
+      simStep++;
+      break;
+    case 7:
+      for(i = 0; i < 8; i++) simLogical[i] = true;
+      break;
+    case 8:
+      var g = simStep % 4;
+      for(i = 0; i < 8; i++) simLogical[i] = ((i % 4) === g);
+      simStep++;
+      break;
+    case 9:
+      k = simStep % 6;
+      d = (k <= 3) ? k : (6 - k);
+      for(i = 0; i < 8; i++) simLogical[i] = (i === (3 - d) || i === (4 + d));
+      simStep++;
+      break;
+    case 10:
+      head = simStep % 8;
+      for(i = 0; i < 8; i++){
+        dist = (head + 8 - i) % 8;
+        simLogical[i] = (dist < 3);
+      }
+      simStep++;
+      break;
+    case 11:
+      p = simStep % 14;
+      pos = (p < 8) ? p : (14 - p);
+      for(i = 0; i < 8; i++) simLogical[i] = (i !== pos);
+      simStep++;
+      break;
+    case 12:
+      s = simStep % 6;
+      for(i = 0; i < 8; i++){
+        if(s === 0) simLogical[i] = (i === 0 || i === 7);
+        else if(s === 1) simLogical[i] = (i === 1 || i === 6);
+        else if(s === 2) simLogical[i] = (i === 2 || i === 5);
+        else if(s === 3) simLogical[i] = (i === 3 || i === 4);
+        else if(s === 4) simLogical[i] = (i >= 2 && i <= 5);
+        else simLogical[i] = (i >= 1 && i <= 6);
+      }
+      simStep++;
+      break;
+    case 13:
+      s = simStep % 8;
+      for(i = 0; i < 8; i++){
+        if(s === 0 || s === 6) simLogical[i] = (i === 0 || i === 7);
+        else if(s === 1 || s === 5) simLogical[i] = (i <= 1 || i >= 6);
+        else if(s === 2 || s === 4) simLogical[i] = (i <= 2 || i >= 5);
+        else if(s === 3) simLogical[i] = true;
+        else simLogical[i] = false;
+      }
+      simStep++;
+      break;
+  }
+}
+
+function drawC7StringCanvas(ts){
+  var canvas = $('bulbs_canvas');
+  if(!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  if(!simLastAnimTs) simLastAnimTs = ts;
+  var dt = Math.min(60, Math.max(1, ts - simLastAnimTs));
+  simLastAnimTs = ts;
+
+  var activePat = state.aleatorio ? state.simPatron : state.patron;
+  var activeSpd = state.aleatorio ? state.simVelocidad : state.velocidad;
+
+  if(state.aleatorio && (!simNextRandomTs || ts >= simNextRandomTs)){
+    pickNextRandomSim();
+    activePat = state.simPatron;
+    activeSpd = state.simVelocidad;
+  }
+
+  if(!simLastStepTs || (ts - simLastStepTs >= activeSpd)){
+    simLastStepTs = ts;
+    stepPattern(activePat);
+  }
+
+  ctx.clearRect(0, 0, W, H);
+  var bgGrad = ctx.createRadialGradient(W * 0.5, H * 0.25, 20, W * 0.5, H * 0.5, W * 0.65);
+  bgGrad.addColorStop(0, '#121a29');
+  bgGrad.addColorStop(1, '#04060c');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  var padX = 56;
+  var spacing = (W - padX * 2) / 7;
+  var wireY = 74;
+
+  // Cable festivo verde oscuro curvo entre sockets
+  ctx.save();
+  ctx.strokeStyle = '#1b3d2b';
+  ctx.lineWidth = 4.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, wireY - 8);
+  ctx.quadraticCurveTo(padX * 0.5, wireY + 2, padX, wireY);
+  for(var c = 0; c < 7; c++){
+    var x1 = padX + c * spacing;
+    var x2 = padX + (c + 1) * spacing;
+    ctx.quadraticCurveTo((x1 + x2) * 0.5, wireY + 13, x2, wireY);
+  }
+  ctx.quadraticCurveTo(W - padX * 0.5, wireY + 2, W, wireY - 8);
+  ctx.stroke();
+
+  // Luz de reflejo sutil en el cable
+  ctx.strokeStyle = 'rgba(134, 239, 172, 0.14)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+
+  for(var phys = 0; phys < 8; phys++){
+    var logIdx = state.invertir ? (7 - phys) : phys;
+    var target = simLogical[logIdx] ? 1 : 0;
+    var rate = target ? (dt / 42) : (dt / 88);
+    simGlow[phys] += (target - simGlow[phys]) * Math.min(1, rate);
+
+    var g = simGlow[phys];
+    var pal = BULB_PALETTE[phys % 4];
+    var cx = padX + phys * spacing;
+    var sockTop = wireY;
+    var bulbTop = wireY + 34;
+    var bulbTip = bulbTop + 124;
+
+    // Resplandor ambiental aditivo
+    if(g > 0.02){
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      var halo = ctx.createRadialGradient(cx, bulbTop + 56, 6, cx, bulbTop + 56, 86);
+      halo.addColorStop(0, pal.halo.replace(/0\.9[02]\)/, (0.52 * g).toFixed(3) + ')'));
+      halo.addColorStop(0.42, pal.halo.replace(/0\.9[02]\)/, (0.20 * g).toFixed(3) + ')'));
+      halo.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(cx, bulbTop + 56, 86, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Gancho y casquillo dorado/bronce estilo Holiday Time
+    ctx.fillStyle = '#193727';
+    ctx.fillRect(cx - 5, sockTop - 6, 10, 10);
+
+    var sockGrad = ctx.createLinearGradient(cx - 14, 0, cx + 14, 0);
+    sockGrad.addColorStop(0, '#463718');
+    sockGrad.addColorStop(0.35, '#8c6f2d');
+    sockGrad.addColorStop(0.7, '#5c481c');
+    sockGrad.addColorStop(1, '#2b210d');
+    ctx.fillStyle = sockGrad;
+    ctx.beginPath();
+    ctx.roundRect(cx - 13, sockTop + 4, 26, 30, 5);
+    ctx.fill();
+
+    // Estrias del casquillo
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.3;
+    for(var r = 10; r <= 24; r += 6){
+      ctx.beginPath();
+      ctx.moveTo(cx - 12, sockTop + r);
+      ctx.lineTo(cx + 12, sockTop + r);
+      ctx.stroke();
+    }
+
+    // Silueta foco C7 Jumbo
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx - 12, bulbTop);
+    ctx.bezierCurveTo(cx - 32, bulbTop + 34, cx - 28, bulbTop + 88, cx, bulbTip);
+    ctx.bezierCurveTo(cx + 28, bulbTop + 88, cx + 32, bulbTop + 34, cx + 12, bulbTop);
+    ctx.closePath();
+
+    var bulbFill = ctx.createRadialGradient(cx, bulbTop + 46, 3, cx, bulbTop + 52, 58);
+    if(g > 0.03){
+      bulbFill.addColorStop(0, pal.core);
+      bulbFill.addColorStop(0.32, pal.mid);
+      bulbFill.addColorStop(1, pal.off);
+    } else {
+      bulbFill.addColorStop(0, pal.mid + '38');
+      bulbFill.addColorStop(0.45, pal.off);
+      bulbFill.addColorStop(1, '#090b12');
+    }
+    ctx.fillStyle = bulbFill;
+    ctx.fill();
+
+    // Borde sutil de cristal
+    ctx.strokeStyle = g > 0.2 ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.14)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Facetas verticales y reflejo especular
+    ctx.clip();
+    ctx.strokeStyle = g > 0.2 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1.1;
+    [-9, 0, 9].forEach(function(off){
+      ctx.beginPath();
+      ctx.moveTo(cx + off * 0.7, bulbTop);
+      ctx.quadraticCurveTo(cx + off * 1.45, bulbTop + 54, cx + off * 0.15, bulbTip);
+      ctx.stroke();
+    });
+
+    ctx.fillStyle = g > 0.2 ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.16)';
+    ctx.beginPath();
+    ctx.ellipse(cx - 10, bulbTop + 34, 4.2, 16, -0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Etiqueta del numero de foco (1..8)
+    ctx.fillStyle = g > 0.35 ? 'rgba(255,255,255,0.88)' : 'rgba(148,163,184,0.45)';
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(phys + 1), cx, bulbTip + 26);
+  }
+}
+
+function animLoop(ts){
+  drawC7StringCanvas(ts || performance.now());
+  requestAnimationFrame(animLoop);
+}
+
+// ── Comunicacion con ESP8266 (CORS + Puente HTTP fallback) ──
+function normalizeIp(raw){
+  if(!raw) return '';
+  return String(raw).trim().replace(/,/g, '.').replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/\s+/g, '');
+}
+
+function getBaseUrl(){
+  var ip = normalizeIp(state.connectedIp || ($('manual_ip_in') && $('manual_ip_in').value));
+  if(!ip) return '';
+  if(IS_LOCAL_HOST && ip === HOST_NAME) return '';
+  return 'http://' + ip;
+}
+
+function updateDevicePill(){
+  var pill = $('btn_device_pill'), lbl = $('device_pill_lbl');
+  if(!pill || !lbl) return;
+  var ip = normalizeIp(state.connectedIp);
+  lbl.textContent = ip || 'Conectar';
+}
+
+function updateFwMetaText(){
+  var el = $('sys_fw_meta');
+  if(!el) return;
+  var txt = 'Conectado: v' + state.fwVer;
+  if(state.latestCloudVer){
+    txt += (state.latestCloudVer !== state.fwVer)
+      ? (' · Disponible en GitHub: v' + state.latestCloudVer)
+      : (' · Al día (v' + state.latestCloudVer + ')');
+  }
+  el.textContent = txt;
+}
+
+function applyDeviceConfigData(ip, d, silent){
+  var cleanIp = normalizeIp((d && d.ip && d.ip !== '0.0.0.0') ? d.ip : ip);
+  if(cleanIp){
+    state.connectedIp = cleanIp;
+    if($('manual_ip_in')) $('manual_ip_in').value = cleanIp;
+    if(!IS_LOCAL_HOST) localStorage.setItem(LS_IP_KEY, cleanIp);
+  }
+  $('btn_device_pill').setAttribute('data-online', 'true');
+  updateDevicePill();
+
+  if(d){
+    deviceCache[cleanIp] = d;
+    if(d.patron !== undefined){ state.patron = Number(d.patron); state.simPatron = state.patron; }
+    if(d.velocidad !== undefined){ state.velocidad = Number(d.velocidad); state.simVelocidad = state.velocidad; }
+    if(d.aleatorio !== undefined) state.aleatorio = Number(d.aleatorio);
+    if(d.ale_min !== undefined) state.aleMin = Number(d.ale_min);
+    if(d.ale_max !== undefined) state.aleMax = Number(d.ale_max);
+    if(d.invertir !== undefined) state.invertir = Number(d.invertir);
+    if(d.ddp !== undefined) state.ddp = Number(d.ddp);
+    if(d.ap !== undefined) state.ap = Number(d.ap);
+    if(d.ssid !== undefined) state.ssid = String(d.ssid);
+    if(d.rssi !== undefined) state.rssi = Number(d.rssi);
+    if(d.heap !== undefined) state.heap = Number(d.heap);
+    if(d.fw_ver) state.fwVer = String(d.fw_ver);
+    renderFoundDeviceCard(cleanIp, d, true);
+  }
+  resetSimStep();
+  renderAllControls();
+  commitSnapshot();
+  if(!silent){
+    showToast('Conectado a ' + cleanIp + (d && d.fw_ver ? ' · v' + d.fw_ver : ''));
+  }
+}
+
+window.addEventListener('message', function(e){
+  if(!e || !e.data) return;
+  if(e.data.type === 'focos_c7_bridge'){
+    var d = e.data.data || {};
+    var ip = d.ip || state.connectedIp || normalizeIp($('manual_ip_in').value);
+    applyDeviceConfigData(ip, d, true);
+    showToast(e.data.saved ? ('Ajustes aplicados en ' + ip) : ('Sincronizado con ' + ip));
+  } else if(e.data.type === 'focos_c7_wifi_scan'){
+    renderScannedWifiList(e.data.networks || []);
+  }
+});
+
+function sendViaHttpBridge(ip, paramsObj, msg, commitOnSubmit){
+  var cleanIp = normalizeIp(ip);
+  if(!cleanIp) return;
+  var win = null;
+  try { win = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
+
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'http://' + cleanIp + '/config?bridge=1';
+  form.target = 'focos_c7_bridge';
+  form.style.display = 'none';
+
+  Object.keys(paramsObj || {}).forEach(function(k){
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = k;
+    inp.value = String(paramsObj[k]);
+    form.appendChild(inp);
+  });
+  var bInp = document.createElement('input');
+  bInp.type = 'hidden'; bInp.name = 'bridge'; bInp.value = '1';
+  form.appendChild(bInp);
+
+  document.body.appendChild(form);
+  try {
+    form.submit();
+    $('btn_device_pill').setAttribute('data-online', 'true');
+    if(commitOnSubmit) commitSnapshot();
+    showToast(msg || ('Enviado a ' + cleanIp));
+  } catch(err){
+    showToast('No se pudo conectar al ESP8266.', true);
+  }
+  setTimeout(function(){ try { document.body.removeChild(form); } catch(e){} }, 350);
+  setTimeout(function(){ try { if(win && !win.closed) win.close(); } catch(e){} }, 900);
+}
+
+function connectManualIpFromDialog(){
+  var clean = normalizeIp($('manual_ip_in').value);
+  if(!clean){ showToast('Ingresa la IP del controlador.', true); return; }
+  connectToDevice(clean, true);
+  $('device_dialog').close();
+}
+
+function connectToDevice(customIp, fromUserGesture){
+  var ip = normalizeIp(customIp || state.connectedIp || ($('manual_ip_in') && $('manual_ip_in').value));
+  if(!ip){ $('device_dialog').showModal(); return; }
+  state.connectedIp = ip;
+  if($('manual_ip_in')) $('manual_ip_in').value = ip;
+  if(!IS_LOCAL_HOST) localStorage.setItem(LS_IP_KEY, ip);
+  updateDevicePill();
+
+  var url = (IS_LOCAL_HOST && ip === HOST_NAME) ? ('/config?t=' + Date.now()) : ('http://' + ip + '/config?t=' + Date.now());
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.device === 'focos-c7'){
+        applyDeviceConfigData(ip, d, fromUserGesture === false);
+      } else {
+        showToast('El dispositivo en ' + ip + ' no es Focos C7.', true);
+      }
+    })
+    .catch(function(){
+      if(deviceCache[ip]){
+        applyDeviceConfigData(ip, deviceCache[ip], fromUserGesture === false);
+        return;
+      }
+      $('btn_device_pill').setAttribute('data-online', 'true');
+      renderFoundDeviceCard(ip, { ip: ip, fw_ver: state.fwVer, ssid: state.ssid }, true);
+      if(fromUserGesture !== false && location.protocol === 'https:'){
+        try {
+          var w = window.open('http://' + ip + '/bridge?t=' + Date.now(), 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999');
+          setTimeout(function(){ try { if(w && !w.closed) w.close(); } catch(e){} }, 800);
+        } catch(e){}
+      }
+      if(fromUserGesture) showToast('Controlador seleccionado: ' + ip);
+    });
+}
+
+function pushConfigToDevice(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){
+    $('device_dialog').showModal();
+    showToast('Conecta primero la IP del ESP8266.', true);
+    return;
+  }
+  var base = getBaseUrl();
+  var btn = $('btn_apply');
+  btn.disabled = true;
+
+  var params = {
+    patron: state.patron,
+    velocidad: state.velocidad,
+    aleatorio: state.aleatorio,
+    ale_min: state.aleMin,
+    ale_max: state.aleMax,
+    invertir: state.invertir
+  };
+  var body = Object.keys(params).map(function(k){ return k + '=' + encodeURIComponent(params[k]); }).join('&');
+
+  fetch(base + '/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false;
+    applyDeviceConfigData(ip, d, true);
+    showToast('Ajustes aplicados en ' + ip);
+  })
+  .catch(function(){
+    btn.disabled = false;
+    sendViaHttpBridge(ip, params, 'Ajustes enviados a ' + ip, true);
+  });
+}
+
+// ── Wi-Fi Scanner & Cambio de Red ──
+function toggleWifiPassVis(){
+  var inp = $('wifi_pass_in'), btn = $('btn_eye_pass');
+  if(!inp) return;
+  var show = (inp.type === 'password');
+  inp.type = show ? 'text' : 'password';
+  if(btn) btn.textContent = show ? 'Ocultar' : 'Ver';
+}
+
+function renderScannedWifiList(nets){
+  var card = $('wifi_scan_card'), box = $('wifi_scan_list');
+  if(!card || !box) return;
+  card.hidden = false;
+  box.innerHTML = '';
+  if(!nets || nets.length === 0){
+    box.innerHTML = '<div class="sys-meta">No se detectaron redes Wi-Fi cercanas.</div>';
+    return;
+  }
+  nets.sort(function(a, b){ return (b.rssi || -100) - (a.rssi || -100); });
+  nets.forEach(function(n){
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'wifi-net';
+    row.onclick = function(){
+      $('wifi_ssid_in').value = n.ssid;
+      $('wifi_pass_in').focus();
+      showToast('Red "' + n.ssid + '" seleccionada');
+    };
+    var qual = (n.rssi > -60) ? 'Excelente' : (n.rssi > -75 ? 'Buena' : 'Débil');
+    row.innerHTML =
+      '<span style="font-weight:600;font-size:0.875rem">' + escapeHtml(n.ssid) + '</span>' +
+      '<span class="sys-meta num">' + (n.open ? 'Abierta · ' : 'Segura · ') + qual + ' (' + n.rssi + ' dBm)</span>';
+    box.appendChild(row);
+  });
+}
+
+function scanWifiNetworks(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){ $('device_dialog').showModal(); showToast('Conecta primero tu ESP8266.', true); return; }
+  var btn = $('btn_scan_wifi');
+  btn.disabled = true; btn.textContent = 'Buscando redes...';
+
+  var base = getBaseUrl();
+  fetch(base + '/scan_wifi?t=' + Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(nets){
+      btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
+      renderScannedWifiList(nets);
+      showToast(nets.length + ' redes encontradas');
+    })
+    .catch(function(){
+      btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
+      if(location.protocol === 'https:'){
+        try {
+          window.open('http://' + ip + '/scan_wifi?bridge=1&t=' + Date.now(), 'focos_c7_wifi', 'width=340,height=180,left=9999,top=9999');
+          showToast('Escaneando redes vía puente local...');
+        } catch(e){ showToast('No se pudo escanear redes desde HTTPS.', true); }
+      } else {
+        showToast('No se pudo comunicar con ' + ip, true);
+      }
+    });
+}
+
+function saveWifiCredentials(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){ $('device_dialog').showModal(); return; }
+  var ssid = $('wifi_ssid_in').value.trim();
+  var pass = $('wifi_pass_in').value;
+  if(!ssid){ showToast('Escribe el nombre de la red Wi-Fi.', true); return; }
+
+  openConfirmDialog(
+    'Cambiar red Wi-Fi',
+    'El controlador ' + ip + ' guardará "' + ssid + '" y se reiniciará para conectarse. Si falla, volverá a abrir FocosC7.',
+    'Guardar y conectar',
+    false,
+    function(){
+      var base = getBaseUrl();
+      var params = { save_wifi: 1, wifi_ssid: ssid, wifi_pass: pass };
+      var body = 'save_wifi=1&wifi_ssid=' + encodeURIComponent(ssid) + '&wifi_pass=' + encodeURIComponent(pass);
+      fetch(base + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+      .then(function(){ showToast('Wi-Fi guardado. Reiniciando ' + ip + '...'); })
+      .catch(function(){ sendViaHttpBridge(ip, params, 'Wi-Fi enviado a ' + ip, false); });
+    }
+  );
+}
+
+function requestResetWifi(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){ $('device_dialog').showModal(); return; }
+  openConfirmDialog(
+    'Olvidar red Wi-Fi',
+    'Se borrará la red guardada en ' + ip + ' y se abrirá el punto de acceso FocosC7 (192.168.4.1).',
+    'Olvidar y reiniciar',
+    true,
+    function(){
+      var base = getBaseUrl();
+      fetch(base + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'reset_wifi=1'
+      })
+      .then(function(){ showToast('Red olvidada. Iniciando AP FocosC7...'); })
+      .catch(function(){ sendViaHttpBridge(ip, { reset_wifi: 1 }, 'Wi-Fi restablecido en ' + ip, false); });
+    }
+  );
+}
+
+// ── OTA y Sistema ──
+function requestDeviceOta(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){ $('device_dialog').showModal(); return; }
+  openConfirmDialog(
+    'Actualizar firmware por OTA',
+    'El ESP8266 (' + ip + ') descargará la última versión desde GitHub. Los 8 focos mostrarán el progreso del 0% al 100% y luego se reiniciará.',
+    'Iniciar OTA',
+    false,
+    function(){
+      var base = getBaseUrl();
+      fetch(base + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'start_ota=1'
+      })
+      .then(function(){ showToast('OTA iniciada en ' + ip + '. Observa los 8 focos.'); })
+      .catch(function(){ sendViaHttpBridge(ip, { start_ota: 1 }, 'OTA iniciada en ' + ip, false); });
+    }
+  );
+}
+
+function requestDeviceReboot(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){ $('device_dialog').showModal(); return; }
+  openConfirmDialog(
+    'Reiniciar controlador',
+    'El ESP8266 en ' + ip + ' se reiniciará conservando sus ajustes.',
+    'Reiniciar',
+    false,
+    function(){
+      var base = getBaseUrl();
+      fetch(base + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'reboot=1'
+      })
+      .then(function(){ showToast('Reiniciando ' + ip + '...'); })
+      .catch(function(){ sendViaHttpBridge(ip, { reboot: 1 }, 'Reiniciando ' + ip + '...', false); });
+    }
+  );
+}
+
+function openLocalFallback(){
+  var ip = normalizeIp(state.connectedIp);
+  if(!ip){ $('device_dialog').showModal(); return; }
+  window.open('http://' + ip + '/', '_blank', 'noopener');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+// ── Descubrimiento LAN y Version Cloud ──
+var scanRunning = false;
+var scanAbortFlag = false;
+var discoveredIps = {};
+
+function ipToUint32(ip){
+  var p = normalizeIp(ip).split('.');
+  if(p.length !== 4) return null;
+  var n = 0;
+  for(var i = 0; i < 4; i++){
+    var v = parseInt(p[i], 10);
+    if(isNaN(v) || v < 0 || v > 255) return null;
+    n = (n * 256) + v;
+  }
+  return n >>> 0;
+}
+
+function uint32ToIp(n){
+  n = n >>> 0;
+  return ((n >>> 24) & 255) + '.' + ((n >>> 16) & 255) + '.' + ((n >>> 8) & 255) + '.' + (n & 255);
+}
+
+function renderFoundDeviceCard(ip, data, skipAutoConnect){
+  var realIp = normalizeIp((data && data.ip && data.ip !== '0.0.0.0') ? data.ip : ip);
+  if(!realIp) return;
+  if(data) deviceCache[realIp] = data;
+
+  var box = $('found_devices');
+  if(!box) return;
+  var cid = 'dev_card_' + realIp.replace(/[^a-zA-Z0-9]/g, '_');
+  var existing = $(cid);
+  var isCur = (normalizeIp(state.connectedIp) === realIp);
+  var ver = 'v' + ((data && data.fw_ver) || state.fwVer);
+  var ssidLbl = (data && data.ssid) ? data.ssid : 'FocosC7';
+
+  var localLink = IS_LOCAL_HOST ? '' :
+    '<a href="http://' + realIp + '/" target="_blank" rel="noopener" class="btn-glass glass-btn-base glint-target">Local</a>';
+
+  var html =
+    '<button type="button" class="clock-pick" onclick="pickDeviceFromDialog(\'' + realIp + '\')">' +
+      '<span class="clock-ip num">' + realIp + '</span>' +
+      '<span class="clock-sub">' + ver + ' · ' + escapeHtml(ssidLbl) + '</span>' +
+    '</button>' +
+    '<div style="display:flex;gap:0.35rem;align-items:center">' +
+      localLink +
+      '<button type="button" class="btn-glass glass-btn-base glint-target" onclick="pickDeviceFromDialog(\'' + realIp + '\')">' + (isCur ? 'Activo' : 'Usar') + '</button>' +
+    '</div>';
+
+  if(existing){
+    existing.setAttribute('data-current', isCur ? 'true' : 'false');
+    existing.innerHTML = html;
+  } else {
+    var card = document.createElement('div');
+    card.id = cid;
+    card.className = 'clock-item';
+    card.setAttribute('data-current', isCur ? 'true' : 'false');
+    card.innerHTML = html;
+    box.appendChild(card);
+  }
+
+  var isFirst = (Object.keys(discoveredIps).length === 0);
+  discoveredIps[realIp] = true;
+  if(!skipAutoConnect && isFirst && !state.connectedIp){
+    applyDeviceConfigData(realIp, data, false);
+  }
+}
+
+function pickDeviceFromDialog(ip){
+  connectToDevice(ip, true);
+  $('device_dialog').close();
+}
+
+async function fetchCloudVersion(notify){
+  var verUrl = IS_LOCAL_HOST
+    ? 'https://raw.githubusercontent.com/' + REPO_OWNER + '/' + REPO_NAME + '/main/version.json?t=' + Date.now()
+    : './version.json?t=' + Date.now();
+  try {
+    var ctrl = new AbortController();
+    var t = setTimeout(function(){ ctrl.abort(); }, 3000);
+    var r = await fetch(verUrl, { signal: ctrl.signal });
+    clearTimeout(t);
+    if(r && r.ok){
+      var vd = await r.json();
+      if(vd && vd.version){
+        state.latestCloudVer = String(vd.version);
+        updateFwMetaText();
+      }
+      if(vd && Array.isArray(vd.changelog) && vd.changelog.length > 0){
+        $('changelog_wrap').hidden = false;
+        $('changelog_stamp').textContent = 'Última compilación: ' + (vd.build_time || '');
+        $('changelog_list').innerHTML = vd.changelog.map(function(c){ return '<li>' + escapeHtml(c) + '</li>'; }).join('');
+      }
+      if(!IS_LOCAL_HOST && vd && Array.isArray(vd.devices)){
+        vd.devices.forEach(function(dev){
+          if(dev && dev.ip) renderFoundDeviceCard(dev.ip, dev, false);
+        });
+      }
+      if(notify) showToast('Versión en GitHub: v' + (vd.version || state.latestCloudVer));
+      return vd;
+    }
+  } catch(e){
+    if(notify) showToast('No se pudo consultar version.json', true);
+  }
+  return null;
+}
+
+async function probeDeviceHost(hostOrIp, timeoutMs){
+  var clean = normalizeIp(hostOrIp);
+  if(!clean) return null;
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, timeoutMs || 800);
+  try {
+    var r = await fetch('http://' + clean + '/config?t=' + Date.now(), { signal: ctrl.signal });
+    clearTimeout(tid);
+    if(r && r.ok){
+      var d = await r.json();
+      if(d && d.device === 'focos-c7'){
+        renderFoundDeviceCard(clean, d, true);
+        return d;
+      }
+    }
+  } catch(e){
+    clearTimeout(tid);
+  }
+  return null;
+}
+
+async function detectWebRtcSubnetPrefix(){
+  return new Promise(function(resolve){
+    var done = false;
+    function finish(v){ if(!done){ done = true; resolve(v); } }
+    setTimeout(function(){ finish(null); }, 650);
+    try {
+      var RTCPeer = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+      if(!RTCPeer) return finish(null);
+      var pc = new RTCPeer({ iceServers: [] });
+      pc.createDataChannel('');
+      pc.onicecandidate = function(e){
+        if(!e || !e.candidate || !e.candidate.candidate) return;
+        var m = e.candidate.candidate.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}\b/);
+        if(m && m[1] && m[1] !== '0.0.0' && m[1] !== '127.0.0'){
+          try { pc.close(); } catch(err){}
+          finish(m[1]);
+        }
+      };
+      pc.createOffer().then(function(o){ pc.setLocalDescription(o); }).catch(function(){ finish(null); });
+    } catch(e){ finish(null); }
+  });
+}
+
+async function scanSubnet254(prefix, labelPrefix){
+  var batchSize = 32;
+  for(var start = 1; start <= 254; start += batchSize){
+    if(scanAbortFlag) return;
+    var end = Math.min(254, start + batchSize - 1);
+    var pct = Math.round((end / 254) * 100);
+    $('scan_prog_lbl').textContent = (labelPrefix || '') + prefix + '.' + start + '-' + end;
+    $('scan_prog_pct').textContent = pct + '%';
+    $('scan_prog_fill').style.inlineSize = pct + '%';
+
+    var jobs = [];
+    for(var h = start; h <= end; h++) jobs.push(probeDeviceHost(prefix + '.' + h, 750));
+    await Promise.all(jobs);
+  }
+}
+
+function stopUniversalScan(){ scanAbortFlag = true; }
+
+async function startUniversalScan(){
+  if(scanRunning) return;
+  scanRunning = true;
+  scanAbortFlag = false;
+  discoveredIps = {};
+  $('found_devices').innerHTML = '';
+  $('scan_prog_wrap').hidden = false;
+  $('btn_start_scan').disabled = true;
+  $('btn_start_scan').textContent = 'Buscando...';
+  $('btn_stop_scan').hidden = false;
+  $('scan_prog_lbl').textContent = 'Probando focosc7.local y AP...';
+  $('scan_prog_pct').textContent = '15%';
+  $('scan_prog_fill').style.inlineSize = '15%';
+
+  var rtcPrefixPromise = detectWebRtcSubnetPrefix();
+  await Promise.all([
+    fetchCloudVersion(false),
+    probeDeviceHost('focosc7.local', 900),
+    probeDeviceHost('192.168.4.1', 800),
+    state.connectedIp ? probeDeviceHost(state.connectedIp, 800) : Promise.resolve(null)
+  ]);
+
+  if(Object.keys(discoveredIps).length === 0){
+    var rtcPrefix = await rtcPrefixPromise;
+    var subnets = [];
+    if(rtcPrefix) subnets.push(rtcPrefix);
+    ['192.168.68', '192.168.1', '192.168.0', '192.168.100'].forEach(function(p){
+      if(subnets.indexOf(p) < 0) subnets.push(p);
+    });
+    for(var i = 0; i < subnets.length; i++){
+      if(scanAbortFlag) break;
+      await scanSubnet254(subnets[i], 'Subred ' + (i + 1) + '/' + subnets.length + ' · ');
+      if(Object.keys(discoveredIps).length > 0) break;
+    }
+  }
+
+  var total = Object.keys(discoveredIps).length;
+  $('scan_prog_lbl').textContent = total > 0 ? (total + ' encontrado(s)') : 'Sin resultados. Usa IP manual.';
+  $('scan_prog_pct').textContent = '100%';
+  $('scan_prog_fill').style.inlineSize = '100%';
+  $('btn_start_scan').disabled = false;
+  $('btn_start_scan').textContent = 'Buscar en red local';
+  $('btn_stop_scan').hidden = true;
+  scanRunning = false;
+}
+
+function setRangePreset(r){
+  $('scan_custom_range').value = r;
+  startCustomRangeScan();
+}
+
+async function startCustomRangeScan(){
+  var raw = $('scan_custom_range').value.trim();
+  if(!raw){ startUniversalScan(); return; }
+  if(scanRunning){ stopUniversalScan(); await new Promise(function(r){ setTimeout(r, 250); }); }
+
+  var startInt = null, endInt = null;
+  var clean = raw.replace(/,/g, '.').replace(/\s+/g, '');
+  if(clean.indexOf('-') > 0){
+    var parts = clean.split('-');
+    startInt = ipToUint32(parts[0]);
+    if(parts[1].indexOf('.') < 0 && parts[0].split('.').length === 4){
+      endInt = ipToUint32(parts[0].split('.').slice(0, 3).join('.') + '.' + parts[1]);
+    } else {
+      endInt = ipToUint32(parts[1]);
+    }
+  } else {
+    var single = ipToUint32(clean);
+    if(single !== null){ connectToDevice(uint32ToIp(single), true); return; }
+  }
+
+  if(startInt === null || endInt === null || endInt < startInt){
+    showToast('Rango inválido.', true);
+    return;
+  }
+
+  scanRunning = true; scanAbortFlag = false;
+  $('scan_prog_wrap').hidden = false;
+  $('btn_start_scan').disabled = true;
+  $('btn_stop_scan').hidden = false;
+
+  var totalIps = (endInt - startInt) + 1;
+  var batch = 32, done = 0;
+  for(var cur = startInt; cur <= endInt; cur += batch){
+    if(scanAbortFlag) break;
+    var batchEnd = Math.min(endInt, cur + batch - 1);
+    var pct = Math.min(100, Math.round(((done + 1) / totalIps) * 100));
+    $('scan_prog_lbl').textContent = uint32ToIp(cur) + ' - ' + uint32ToIp(batchEnd);
+    $('scan_prog_pct').textContent = pct + '%';
+    $('scan_prog_fill').style.inlineSize = pct + '%';
+    var jobs = [];
+    for(var n = cur; n <= batchEnd; n++){
+      var lo = n & 255;
+      if(totalIps > 1 && (lo === 0 || lo === 255)) continue;
+      jobs.push(probeDeviceHost(uint32ToIp(n), 750));
+    }
+    await Promise.all(jobs);
+    done += (batchEnd - cur + 1);
+  }
+
+  $('scan_prog_lbl').textContent = 'Finalizado · ' + Object.keys(discoveredIps).length + ' encontrado(s)';
+  $('scan_prog_pct').textContent = '100%';
+  $('scan_prog_fill').style.inlineSize = '100%';
+  $('btn_start_scan').disabled = false;
+  $('btn_stop_scan').hidden = true;
+  scanRunning = false;
+}
+
+// ── Instalador USB (esp-web-tools) ──
+(function initUsbFlasher(){
+  var slot = $('usb_flash_slot');
+  if(!slot) return;
+  var canWebSerial = (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  if(canWebSerial){
+    var sc = document.createElement('script');
+    sc.type = 'module';
+    sc.src = 'https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module';
+    document.head.appendChild(sc);
+    slot.innerHTML = '<esp-web-install-button manifest="manifest.json">' +
+      '<button slot="activate" type="button" class="btn-glass glass-btn-base glint-target">Flashear USB</button>' +
+      '<span slot="unsupported" class="sys-meta">Requiere Chrome o Edge</span>' +
+    '</esp-web-install-button>';
+  } else {
+    slot.innerHTML = '<a class="btn-glass glass-btn-base glint-target" href="https://alexgremory255.github.io/focos-c7/#settings" target="_blank" rel="noopener">Abrir instalador</a>';
+  }
+})();
+
+// ── Inicio ──
+if(state.connectedIp && $('manual_ip_in')) $('manual_ip_in').value = state.connectedIp;
+updateDevicePill();
+renderAllControls();
+commitSnapshot();
+requestAnimationFrame(animLoop);
+
+fetchCloudVersion(false);
+if(state.connectedIp){
+  connectToDevice(state.connectedIp, false);
+} else {
+  probeDeviceHost('focosc7.local', 850).then(function(d){
+    if(d && !state.connectedIp) applyDeviceConfigData('focosc7.local', d, false);
+  });
+}
+</script>
+</body>
+</html>

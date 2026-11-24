@@ -1,0 +1,5 @@
+- Estudio Web Liquid Glass en GitHub Pages con vista previa en vivo de los 8 focos jumbo Holiday Time.
+- 14 modos de iluminacion (0-13): 8 clasicos + 6 nuevos efectos simetricos y por color.
+- Buscador automatico de controladores ESP8266 en la red local y conexion directa por IP.
+- Escaneo y cambio de red Wi-Fi desde la web con respaldo automatico FocosC7.
+- Soporte completo para Cloud OTA desde GitHub (BearSSL) y xLights DDP (UDP 4048).

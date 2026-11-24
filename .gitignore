@@ -1,0 +1,5 @@
+.env
+__pycache__/
+*.pyc
+focos_c7/build/
+.pio/

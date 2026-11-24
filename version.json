@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "build_time": "23/11/2026 22:00",
+  "notes": "Lanzamiento inicial Focos C7 Studio",
+  "changelog": [
+    "Estudio Web Liquid Glass en GitHub Pages con vista previa en vivo de los 8 focos jumbo Holiday Time.",
+    "14 modos de iluminacion (0-13): 8 clasicos + 6 nuevos efectos simetricos y por color.",
+    "Buscador automatico de controladores ESP8266 en la red local y conexion directa por IP.",
+    "Escaneo y cambio de red Wi-Fi desde la web con respaldo automatico FocosC7.",
+    "Soporte completo para Cloud OTA desde GitHub (BearSSL) y xLights DDP (UDP 4048)."
+  ],
+  "url": "https://alexgremory255.github.io/focos-c7/firmware.bin",
+  "fallback_url": "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin",
+  "devices": []
+}
