@@ -1,13 +1,12 @@
 {
-  "version": "1.0.0",
-  "build_time": "23/11/2026 22:00",
-  "notes": "Lanzamiento inicial Focos C7 Studio",
+  "version": "1.0.1",
+  "build_time": "23/11/2026 22:18",
+  "notes": "Rediseño móvil fluido a 60/120 FPS y compatibilidad universal ESP8266 (v1.0.1)",
   "changelog": [
-    "Estudio Web Liquid Glass en GitHub Pages con vista previa en vivo de los 8 focos jumbo Holiday Time.",
-    "14 modos de iluminacion (0-13): 8 clasicos + 6 nuevos efectos simetricos y por color.",
-    "Buscador automatico de controladores ESP8266 en la red local y conexion directa por IP.",
-    "Escaneo y cambio de red Wi-Fi desde la web con respaldo automatico FocosC7.",
-    "Soporte completo para Cloud OTA desde GitHub (BearSSL) y xLights DDP (UDP 4048)."
+    "Rediseño completo para móvil: paneles separados sin traslapes y vista previa deslizable para navegar cómodamente.",
+    "Optimización real a 60/120 FPS: sprites pre-renderizados en canvas, sin filtro SVG costoso y tarjetas fluidas en pantallas táctiles.",
+    "Indicador en vivo de los 8 focos integrado en la barra superior.",
+    "Compatibilidad universal en Arduino IDE para ESP8266 regular (NodeMCU 1.0 / Generic ESP8266 Module) y diagnóstico de Flash OTA."
   ],
   "url": "https://alexgremory255.github.io/focos-c7/firmware.bin",
   "fallback_url": "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin",

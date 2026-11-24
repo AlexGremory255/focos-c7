@@ -9,10 +9,23 @@
 
 // ============================================================================
 //  Focos C7 Studio - Controlador Wi-Fi 8 Canales para ESP8266 (Arduino IDE)
-//  Compatible con NodeMCU / Wemos D1 Mini (4 MB Flash: 4M2M / 4M1M)
+//  Placa recomendada: "NodeMCU 1.0 (ESP-12E Module)"
+//  Tambien compatible con "Generic ESP8266 Module" (Flash 4MB FS:2MB OTA:~1019KB)
 // ============================================================================
 
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.1"
+
+// Mapeo GPIO por si se compila con "Generic ESP8266 Module" en Arduino IDE
+#ifndef D0
+#define D0 16
+#define D1 5
+#define D2 4
+#define D3 0
+#define D4 2
+#define D5 14
+#define D6 12
+#define D7 13
+#endif
 
 // Red Wi-Fi por defecto (opcional: tambien puedes configurarla desde la web)
 const char* DEFAULT_WIFI_SSID = "TU_WIFI";
@@ -522,6 +535,9 @@ String construirJsonConfig() {
   json += ",\"invertir\":" + String(invertirOrden ? 1 : 0);
   json += ",\"mask\":" + String(obtenerMascara());
   json += ",\"heap\":" + String(ESP.getFreeHeap());
+  json += ",\"flash_kb\":" + String(ESP.getFlashChipRealSize() / 1024);
+  json += ",\"ota_kb\":" + String(ESP.getFreeSketchSpace() / 1024);
+  json += ",\"ota_ok\":" + String((ESP.checkFlashConfig(false) && ESP.getFreeSketchSpace() > 480000) ? 1 : 0);
   json += "}";
   return json;
 }
