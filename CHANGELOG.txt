@@ -1,4 +1,3 @@
-- Escaner interactivo de redes Wi-Fi cercanas integrado en el portal local (192.168.4.1 / /) con portal cautivo automatico.
-- Descubrimiento automatico por Cloud Radar HTTPS para GitHub Pages + indicador visual de conexion (2 destellos verdes al conectar, 2 rojos si falla).
-- Validacion estricta de IP en GitHub Pages: rechaza IPs incorrectas o de otros dispositivos y corrige bloqueos de puente HTTP en navegador movil.
-- Estabilidad Wi-Fi/AP/mDNS mejorada (WiFi.persistent(false), hostname Focos-C7, 15s de espera Mesh y sin saltos de canal en modo FocosC7).
+- Vista previa de los 8 focos y controles de velocidad/aleatorio visibles unicamente en la pestana Efectos.
+- Arranque silencioso en ESP8266: mantiene las luces apagadas durante la conexion Wi-Fi y muestra 3 destellos verdes si conecto (o 3 rojos si fallo) antes de iniciar efectos.
+- Control hibrido sin advertencias de seguridad en HTTPS: reemplaza formulario POST mixto por puente GET y agrega Cloud Relay HTTPS para redes Guest aisladas.

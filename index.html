@@ -546,7 +546,7 @@ body {
 }
 .apply-btn[data-dirty="true"] .dirty-mark { display: inline-block; }
 
-/* ── Shell de 2 columnas ── */
+/* ── Shell de 2 columnas (1 columna centrada fuera de Efectos) ── */
 .app-shell {
   position: relative;
   z-index: 1;
@@ -557,6 +557,12 @@ body {
   grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
   gap: 1.85rem;
   align-items: start;
+}
+
+.app-shell[data-tab="wifi"],
+.app-shell[data-tab="settings"] {
+  grid-template-columns: minmax(0, 1fr);
+  max-inline-size: 52rem;
 }
 
 .stage-col {
@@ -1417,7 +1423,7 @@ dialog {
     padding-block: 0.65rem calc(6.2rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .stage-col {
+  .stage-col:not([hidden]) {
     display: contents;
   }
 
@@ -1539,8 +1545,8 @@ dialog {
   </div>
 </header>
 
-<main class="app-shell">
-  <aside class="stage-col">
+<main class="app-shell" id="app_shell" data-tab="effects">
+  <aside class="stage-col" id="stage_col">
     <div class="bulbs-stage">
       <div class="bulbs-bezel">
         <div class="canvas-well">
@@ -1656,6 +1662,7 @@ dialog {
                 </div>
                 <span class="hud-pill" id="wifi_ap_pill">AP FocosC7</span>
               </div>
+              <div class="sys-meta" id="wifi_isolation_hint" hidden style="padding-top:0.55rem;border-top:1px solid var(--sep);line-height:1.45"></div>
             </div>
           </div>
 
@@ -1717,7 +1724,7 @@ dialog {
               <div class="sys-row">
                 <div>
                   <div class="sys-title">Firmware del controlador</div>
-                  <div class="sys-meta num" id="sys_fw_meta">Conectado: v1.0.1</div>
+                  <div class="sys-meta num" id="sys_fw_meta">Sin controlador conectado</div>
                   <div class="sys-meta num" id="sys_flash_meta" hidden></div>
                 </div>
                 <div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap">
@@ -1923,14 +1930,18 @@ var state = {
   ddp: 0,
   ap: 0,
   ssid: '',
+  mac: '',
+  cmdTopic: '',
+  ackTopic: '',
   rssi: 0,
   heap: 0,
   flashKb: 0,
   otaKb: 0,
   otaOk: 1,
-  fwVer: '1.0.2',
+  fwVer: '1.0.3',
   latestCloudVer: '',
   connectedIp: '',
+  linkMode: '',
   effectFilter: 'all',
   activeTab: 'effects'
 };
@@ -1940,6 +1951,7 @@ var deviceCache = {};
 var _directFetchOk = {};
 var _radarCache = {};
 var _pendingBridgeVerify = null;
+var _pendingBridgeAction = null;
 var toastTimer = null;
 
 // ── Tema claro/oscuro ──
@@ -2005,7 +2017,7 @@ function showToast(msg, isErr){
       : '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8.2L7.2 9.9L10.8 6.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   }
   if(toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ ft.hidden = true; }, 3800);
+  toastTimer = setTimeout(function(){ ft.hidden = true; }, 4200);
 }
 
 function openConfirmDialog(title, message, okLabel, isDanger, onConfirm){
@@ -2023,15 +2035,22 @@ function openConfirmDialog(title, message, okLabel, isDanger, onConfirm){
   dlg.showModal();
 }
 
-// ── Pestañas (sin traslape ni scroll forzado) ──
+// ── Pestañas (vista previa y velocidad exclusivas de Efectos) ──
 function switchTab(name){
+  if(name !== 'effects' && name !== 'wifi' && name !== 'settings') name = 'effects';
   state.activeTab = name;
+  if($('app_shell')) $('app_shell').setAttribute('data-tab', name);
+  if($('stage_col')) $('stage_col').hidden = (name !== 'effects');
   ['effects', 'wifi', 'settings'].forEach(function(k){
     var t = $('tab_' + k), p = $('panel_' + k);
     var active = (k === name);
     if(t) t.setAttribute('aria-selected', active ? 'true' : 'false');
     if(p) p.hidden = !active;
   });
+  if(name === 'effects'){
+    _canvasVisible = true;
+    markCanvasRedraw();
+  }
 }
 
 // ── Snapshot / Dirty ──
@@ -2148,14 +2167,30 @@ function renderAllControls(){
   }
 
   if($('wifi_cur_ssid')){
+    var hint = $('wifi_isolation_hint');
     if(state.connectedIp){
+      var modeTxt = state.linkMode === 'cloud'
+        ? ' · Cloud Relay HTTPS'
+        : (state.linkMode === 'direct' ? ' · LAN directa' : (state.linkMode === 'bridge' ? ' · Puente HTTP' : ''));
       $('wifi_cur_ssid').textContent = state.ssid ? ('Conectado a "' + state.ssid + '"') : 'Conectado en modo AP FocosC7';
-      $('wifi_cur_meta').textContent = 'IP ' + state.connectedIp + (state.rssi ? (' · Señal ' + state.rssi + ' dBm') : '');
+      $('wifi_cur_meta').textContent = 'IP ' + state.connectedIp + (state.rssi ? (' · Señal ' + state.rssi + ' dBm') : '') + modeTxt;
       $('wifi_ap_pill').textContent = state.ap ? 'AP Respaldo Activo' : 'AP Apagado';
+      if(hint){
+        var isGuest = /guest|invitad/i.test(state.ssid || '');
+        if(isGuest || (state.linkMode === 'cloud' && !_directFetchOk[normalizeIp(state.connectedIp)])){
+          hint.hidden = false;
+          hint.textContent = isGuest
+            ? ('Tu ESP8266 está en "' + state.ssid + '" (red de invitados). Esa red bloquea abrir http://' + state.connectedIp + '/ directo desde tu teléfono/PC, pero en v1.0.3+ GitHub Pages lo controla por Cloud Relay HTTPS. Para pasarlo a tu Wi-Fi principal sin cables, pulsa "Olvidar red (abrir FocosC7)".')
+            : ('Sin alcance HTTP directo a ' + state.connectedIp + ' desde HTTPS; operando por Cloud Relay HTTPS.');
+        } else {
+          hint.hidden = true;
+        }
+      }
     } else {
       $('wifi_cur_ssid').textContent = 'Sin conexión a controlador';
       $('wifi_cur_meta').textContent = 'Conecta un ESP8266 arriba para ver o cambiar su red Wi-Fi';
       $('wifi_ap_pill').textContent = 'Desconectado';
+      if(hint) hint.hidden = true;
     }
   }
   if($('sys_ddp_meta')){
@@ -2548,6 +2583,7 @@ function stepPattern(pat){
 }
 
 function drawC7StringCanvas(ts){
+  if(state.activeTab !== 'effects') return;
   if(!_bgCanvas) buildBulbCaches();
 
   var activePat = state.aleatorio ? state.simPatron : state.patron;
@@ -2585,7 +2621,7 @@ function animLoop(ts){
   requestAnimationFrame(animLoop);
 }
 
-// ── Comunicacion con ESP8266 (CORS + Puente HTTP fallback) ──
+// ── Comunicacion Hibrida ESP8266 (LAN directa + Cloud Relay HTTPS + Puente GET) ──
 function normalizeIp(raw){
   if(!raw) return '';
   return String(raw).trim().replace(/,/g, '.').replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/\s+/g, '');
@@ -2605,9 +2641,110 @@ function isValidHostOrIp(raw){
   return ipToUint32(clean) !== null;
 }
 
+function compareVersions(a, b){
+  var pa = String(a || '0').replace(/[^0-9.]/g, '').split('.');
+  var pb = String(b || '0').replace(/[^0-9.]/g, '').split('.');
+  var len = Math.max(pa.length, pb.length);
+  for(var i = 0; i < len; i++){
+    var va = parseInt(pa[i] || '0', 10) || 0;
+    var vb = parseInt(pb[i] || '0', 10) || 0;
+    if(va > vb) return 1;
+    if(va < vb) return -1;
+  }
+  return 0;
+}
+
+function cleanMacHex(mac){
+  return String(mac || '').replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+}
+
+function getCloudTopics(ip){
+  var clean = normalizeIp(ip);
+  var d = deviceCache[clean] || _radarCache[clean] || null;
+  if(d && d.cmd_topic && d.ack_topic) return { cmd: String(d.cmd_topic), ack: String(d.ack_topic) };
+  if(clean && clean === normalizeIp(state.connectedIp) && state.cmdTopic && state.ackTopic){
+    return { cmd: state.cmdTopic, ack: state.ackTopic };
+  }
+  var mac = (d && d.mac) || (clean === normalizeIp(state.connectedIp) ? state.mac : '');
+  var hex = cleanMacHex(mac);
+  if(hex.length === 12){
+    return { cmd: 'focosc7_cmd_' + hex, ack: 'focosc7_ack_' + hex };
+  }
+  return null;
+}
+
+function supportsCloudRelay(ip){
+  var clean = normalizeIp(ip);
+  var d = deviceCache[clean] || _radarCache[clean] || null;
+  var ver = (d && d.fw_ver) || (clean === normalizeIp(state.connectedIp) ? state.fwVer : '');
+  if(!ver || compareVersions(ver, '1.0.3') < 0) return false;
+  return Boolean(getCloudTopics(clean));
+}
+
 function shouldUseHttpBridge(ip){
   var clean = normalizeIp(ip);
   return (location.protocol === 'https:' && !IS_LOCAL_HOST && !_directFetchOk[clean]);
+}
+
+function buildQueryString(paramsObj){
+  return Object.keys(paramsObj || {}).map(function(k){
+    return encodeURIComponent(k) + '=' + encodeURIComponent(String(paramsObj[k]));
+  }).join('&');
+}
+
+function makeReqId(){
+  return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+async function sendViaCloudRelay(ip, paramsObj, timeoutMs){
+  var clean = normalizeIp(ip);
+  var topics = getCloudTopics(clean);
+  if(!topics) throw new Error('Controlador sin Cloud Relay');
+
+  var reqId = makeReqId();
+  var body = 'cmd=1&req_id=' + encodeURIComponent(reqId);
+  var extra = buildQueryString(paramsObj);
+  if(extra) body += '&' + extra;
+
+  var postRes = await fetch('https://ntfy.sh/' + topics.cmd, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: body
+  });
+  if(!postRes || !postRes.ok) throw new Error('No se pudo publicar orden en Cloud Relay');
+
+  var deadline = Date.now() + (timeoutMs || 4500);
+  var waitMs = 260;
+  while(Date.now() < deadline){
+    await new Promise(function(r){ setTimeout(r, waitMs); });
+    waitMs = 420;
+    var ctrl = new AbortController();
+    var tid = setTimeout(function(){ ctrl.abort(); }, 1800);
+    try {
+      var res = await fetch('https://ntfy.sh/' + topics.ack + '/json?poll=1&since=25s&t=' + Date.now(), { signal: ctrl.signal });
+      clearTimeout(tid);
+      if(res && res.ok){
+        var txt = await res.text();
+        var lines = txt.split('\n');
+        for(var i = lines.length - 1; i >= 0; i--){
+          var ln = lines[i].trim();
+          if(!ln) continue;
+          try {
+            var ev = JSON.parse(ln);
+            if(ev && ev.event === 'message' && ev.message){
+              var payload = JSON.parse(ev.message);
+              if(payload && payload.req_id === reqId){
+                return payload;
+              }
+            }
+          } catch(pe){}
+        }
+      }
+    } catch(e){
+      clearTimeout(tid);
+    }
+  }
+  throw new Error('Tiempo agotado esperando confirmación de ' + clean);
 }
 
 function updateDevicePill(){
@@ -2621,13 +2758,18 @@ function updateDevicePill(){
 
 function disconnectDevice(){
   state.connectedIp = '';
+  state.linkMode = '';
   state.ssid = '';
+  state.mac = '';
+  state.cmdTopic = '';
+  state.ackTopic = '';
   state.rssi = 0;
   state.heap = 0;
   state.flashKb = 0;
   state.otaKb = 0;
   state.ddp = 0;
   state.ap = 0;
+  state.fwVer = '1.0.3';
   if($('manual_ip_in')) $('manual_ip_in').value = '';
   try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
   updateDevicePill();
@@ -2644,26 +2786,29 @@ function disconnectDevice(){
 function updateFwMetaText(){
   var el = $('sys_fw_meta');
   if(!el) return;
-  var txt = 'Conectado: v' + state.fwVer;
+  var txt = state.connectedIp ? ('Conectado: v' + state.fwVer) : 'Sin controlador conectado';
   if(state.latestCloudVer){
-    txt += (state.latestCloudVer !== state.fwVer)
-      ? (' · Disponible en GitHub: v' + state.latestCloudVer)
-      : (' · Al día (v' + state.latestCloudVer + ')');
+    if(state.connectedIp){
+      txt += (compareVersions(state.latestCloudVer, state.fwVer) > 0)
+        ? (' · Disponible en GitHub: v' + state.latestCloudVer)
+        : (' · Al día (v' + state.latestCloudVer + ')');
+    } else {
+      txt += ' · Última versión en GitHub: v' + state.latestCloudVer;
+    }
   }
   el.textContent = txt;
 }
 
-function applyDeviceConfigData(ip, d, silent){
+function applyDeviceConfigData(ip, d, silent, linkModeOverride){
   var cleanIp = normalizeIp((d && d.ip && d.ip !== '0.0.0.0') ? d.ip : ip);
   if(cleanIp){
     state.connectedIp = cleanIp;
     if($('manual_ip_in')) $('manual_ip_in').value = cleanIp;
     if(!IS_LOCAL_HOST) localStorage.setItem(LS_IP_KEY, cleanIp);
   }
-  updateDevicePill();
 
   if(d){
-    deviceCache[cleanIp] = d;
+    deviceCache[cleanIp] = Object.assign({}, deviceCache[cleanIp] || {}, d);
     if(d.patron !== undefined){ state.patron = Number(d.patron); state.simPatron = state.patron; }
     if(d.velocidad !== undefined){ state.velocidad = Number(d.velocidad); state.simVelocidad = state.velocidad; }
     if(d.aleatorio !== undefined) state.aleatorio = Number(d.aleatorio);
@@ -2673,19 +2818,26 @@ function applyDeviceConfigData(ip, d, silent){
     if(d.ddp !== undefined) state.ddp = Number(d.ddp);
     if(d.ap !== undefined) state.ap = Number(d.ap);
     if(d.ssid !== undefined) state.ssid = String(d.ssid);
+    if(d.mac !== undefined) state.mac = String(d.mac);
+    if(d.cmd_topic !== undefined) state.cmdTopic = String(d.cmd_topic);
+    if(d.ack_topic !== undefined) state.ackTopic = String(d.ack_topic);
     if(d.rssi !== undefined) state.rssi = Number(d.rssi);
     if(d.heap !== undefined) state.heap = Number(d.heap);
     if(d.flash_kb !== undefined) state.flashKb = Number(d.flash_kb);
     if(d.ota_kb !== undefined) state.otaKb = Number(d.ota_kb);
     if(d.ota_ok !== undefined) state.otaOk = Number(d.ota_ok);
     if(d.fw_ver) state.fwVer = String(d.fw_ver);
-    renderFoundDeviceCard(cleanIp, d, true);
   }
+
+  state.linkMode = linkModeOverride || (_directFetchOk[cleanIp] ? 'direct' : (supportsCloudRelay(cleanIp) ? 'cloud' : 'bridge'));
+  updateDevicePill();
+  if(d && cleanIp) renderFoundDeviceCard(cleanIp, deviceCache[cleanIp] || d, true);
   resetSimStep();
   renderAllControls();
   commitSnapshot();
   if(!silent){
-    showToast('Conectado a ' + cleanIp + (d && d.fw_ver ? ' · v' + d.fw_ver : ''));
+    var viaTxt = state.linkMode === 'cloud' ? ' · Cloud Relay' : '';
+    showToast('Conectado a ' + cleanIp + (d && d.fw_ver ? ' · v' + d.fw_ver : '') + viaTxt);
   }
 }
 
@@ -2694,17 +2846,24 @@ window.addEventListener('message', function(e){
   if(e.data.type === 'focos_c7_bridge'){
     var d = e.data.data || {};
     if(d.device !== 'focos-c7') return;
-    var ip = normalizeIp(d.ip || (_pendingBridgeVerify && _pendingBridgeVerify.ip) || state.connectedIp || ($('manual_ip_in') && $('manual_ip_in').value));
+    var ip = normalizeIp(d.ip || (_pendingBridgeVerify && _pendingBridgeVerify.ip) || (_pendingBridgeAction && _pendingBridgeAction.ip) || state.connectedIp || ($('manual_ip_in') && $('manual_ip_in').value));
     if(_pendingBridgeVerify){
       clearTimeout(_pendingBridgeVerify.timer);
       try { if(_pendingBridgeVerify.win && !_pendingBridgeVerify.win.closed) _pendingBridgeVerify.win.close(); } catch(err){}
       _pendingBridgeVerify = null;
       if($('device_dialog') && $('device_dialog').open) $('device_dialog').close();
-      applyDeviceConfigData(ip, d, false);
+      applyDeviceConfigData(ip, d, false, 'bridge');
       return;
     }
-    applyDeviceConfigData(ip, d, true);
-    showToast(e.data.saved ? ('Ajustes aplicados en ' + ip) : ('Sincronizado con ' + ip));
+    var actMsg = null;
+    if(_pendingBridgeAction){
+      clearTimeout(_pendingBridgeAction.timer);
+      actMsg = _pendingBridgeAction.msg;
+      try { if(_pendingBridgeAction.win && !_pendingBridgeAction.win.closed) _pendingBridgeAction.win.close(); } catch(err){}
+      _pendingBridgeAction = null;
+    }
+    applyDeviceConfigData(ip, d, true, 'bridge');
+    showToast(actMsg || (e.data.saved ? ('Ajustes aplicados en ' + ip) : ('Sincronizado con ' + ip)));
   } else if(e.data.type === 'focos_c7_wifi_scan'){
     var btn = $('btn_scan_wifi');
     if(btn){ btn.disabled = false; btn.textContent = 'Buscar redes cercanas'; }
@@ -2712,43 +2871,48 @@ window.addEventListener('message', function(e){
   }
 });
 
-function sendViaHttpBridge(ip, paramsObj, msg, commitOnSubmit){
+function openGetBridgePopup(ip, paramsObj, msg, commitOnSubmit, preWin){
   var cleanIp = normalizeIp(ip);
   if(!cleanIp) return;
-  var win = null;
-  try { win = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
+  var win = preWin;
+  if(!win || win.closed){
+    try { win = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
+  }
   if(!win){
     showToast('Permite ventanas emergentes para controlar ' + cleanIp + ' desde HTTPS.', true);
     return;
   }
 
-  var form = document.createElement('form');
-  form.method = 'POST';
-  form.action = 'http://' + cleanIp + '/config?bridge=1';
-  form.target = 'focos_c7_bridge';
-  form.style.display = 'none';
+  var p = Object.assign({}, paramsObj || {}, { bridge: 1, t: Date.now() });
+  var targetUrl = 'http://' + cleanIp + '/bridge?' + buildQueryString(p);
 
-  Object.keys(paramsObj || {}).forEach(function(k){
-    var inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = k;
-    inp.value = String(paramsObj[k]);
-    form.appendChild(inp);
-  });
-  var bInp = document.createElement('input');
-  bInp.type = 'hidden'; bInp.name = 'bridge'; bInp.value = '1';
-  form.appendChild(bInp);
-
-  document.body.appendChild(form);
-  try {
-    form.submit();
-    if(commitOnSubmit) commitSnapshot();
-    showToast(msg || ('Enviado a ' + cleanIp));
-  } catch(err){
-    showToast('No se pudo conectar al ESP8266.', true);
+  if(_pendingBridgeAction){
+    clearTimeout(_pendingBridgeAction.timer);
   }
-  setTimeout(function(){ try { document.body.removeChild(form); } catch(e){} }, 350);
-  setTimeout(function(){ try { if(win && !win.closed) win.close(); } catch(e){} }, 1200);
+  var timer = setTimeout(function(){
+    if(_pendingBridgeAction && _pendingBridgeAction.ip === cleanIp){
+      try { if(_pendingBridgeAction.win && !_pendingBridgeAction.win.closed) _pendingBridgeAction.win.close(); } catch(e){}
+      _pendingBridgeAction = null;
+      showToast('Sin respuesta local de ' + cleanIp + '. Tu Wi-Fi puede estar aislando dispositivos locales.', true);
+    }
+  }, 3800);
+
+  _pendingBridgeAction = {
+    ip: cleanIp,
+    win: win,
+    timer: timer,
+    msg: msg,
+    commitOnSubmit: Boolean(commitOnSubmit)
+  };
+
+  try {
+    win.location = targetUrl;
+  } catch(err){
+    clearTimeout(timer);
+    _pendingBridgeAction = null;
+    try { win.close(); } catch(e2){}
+    showToast('No se pudo abrir el puente GET hacia ' + cleanIp + '.', true);
+  }
 }
 
 function connectManualIpFromDialog(){
@@ -2758,7 +2922,7 @@ function connectManualIpFromDialog(){
     return;
   }
   var preWin = null;
-  if(shouldUseHttpBridge(clean)){
+  if(shouldUseHttpBridge(clean) && !supportsCloudRelay(clean)){
     try { preWin = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
   }
   connectToDevice(clean, true, preWin);
@@ -2789,7 +2953,7 @@ function connectToDevice(customIp, fromUserGesture, preOpenedWin){
       if(d && d.device === 'focos-c7'){
         _directFetchOk[clean] = true;
         if(fromUserGesture && $('device_dialog') && $('device_dialog').open) $('device_dialog').close();
-        applyDeviceConfigData(clean, d, !fromUserGesture);
+        applyDeviceConfigData(clean, d, !fromUserGesture, 'direct');
       } else {
         if(!fromUserGesture && clean === candidateBootIp) try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
         showToast('La IP ' + clean + ' respondió, pero no corresponde a unos Focos C7.', true);
@@ -2797,6 +2961,28 @@ function connectToDevice(customIp, fromUserGesture, preOpenedWin){
     })
     .catch(function(){
       clearTimeout(tid);
+
+      if(supportsCloudRelay(clean)){
+        if(preOpenedWin) try { preOpenedWin.close(); } catch(e){}
+        sendViaCloudRelay(clean, { ping: 1 }, 3800)
+          .then(function(d){
+            if(d && d.device === 'focos-c7'){
+              if(fromUserGesture && $('device_dialog') && $('device_dialog').open) $('device_dialog').close();
+              applyDeviceConfigData(clean, d, !fromUserGesture, 'cloud');
+            } else {
+              throw new Error('Respuesta inválida');
+            }
+          })
+          .catch(function(){
+            if(fromUserGesture){
+              showToast('No se encontró Focos C7 activo en ' + clean + ' ni por Cloud Relay.', true);
+            } else if(clean === candidateBootIp){
+              try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
+            }
+          });
+        return;
+      }
+
       if(location.protocol !== 'https:'){
         if(preOpenedWin) try { preOpenedWin.close(); } catch(e){}
         if(!fromUserGesture && clean === candidateBootIp) try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
@@ -2814,7 +3000,7 @@ function connectToDevice(customIp, fromUserGesture, preOpenedWin){
             if(_pendingBridgeVerify && _pendingBridgeVerify.ip === clean){
               try { if(_pendingBridgeVerify.win && !_pendingBridgeVerify.win.closed) _pendingBridgeVerify.win.close(); } catch(e){}
               _pendingBridgeVerify = null;
-              showToast('No se encontró Focos C7 en ' + clean + '. Verifica la IP y tu Wi-Fi.', true);
+              showToast('No responde ' + clean + ' en tu red local. Verifica Wi-Fi o aislamiento de invitados.', true);
             }
           }, 3500);
           _pendingBridgeVerify = { ip: clean, win: preOpenedWin, timer: timer };
@@ -2831,7 +3017,7 @@ function connectToDevice(customIp, fromUserGesture, preOpenedWin){
         }
       } else {
         if(_radarCache[clean]){
-          applyDeviceConfigData(clean, _radarCache[clean], false);
+          applyDeviceConfigData(clean, _radarCache[clean], false, 'bridge');
         } else if(clean === candidateBootIp){
           try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
         }
@@ -2856,30 +3042,56 @@ function pushConfigToDevice(){
     invertir: state.invertir
   };
 
-  if(shouldUseHttpBridge(ip)){
-    sendViaHttpBridge(ip, params, 'Ajustes enviados a ' + ip, true);
+  if(shouldUseHttpBridge(ip) && !supportsCloudRelay(ip)){
+    openGetBridgePopup(ip, params, 'Ajustes aplicados en ' + ip, true, null);
     return;
   }
 
   var base = getBaseUrl();
   var btn = $('btn_apply');
   btn.disabled = true;
-  var body = Object.keys(params).map(function(k){ return k + '=' + encodeURIComponent(params[k]); }).join('&');
+  var body = buildQueryString(params);
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, (!IS_LOCAL_HOST && location.protocol === 'https:' && !_directFetchOk[ip]) ? 850 : 2600);
 
   fetch(base + '/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body
+    body: body,
+    signal: ctrl.signal
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r){
+    clearTimeout(tid);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(function(d){
     btn.disabled = false;
     if(d && d.device === 'focos-c7'){
-      applyDeviceConfigData(ip, d, true);
+      _directFetchOk[ip] = true;
+      applyDeviceConfigData(ip, d, true, 'direct');
       showToast('Ajustes aplicados en ' + ip);
     }
   })
   .catch(function(){
+    clearTimeout(tid);
+    if(supportsCloudRelay(ip)){
+      sendViaCloudRelay(ip, params, 4500)
+        .then(function(d){
+          btn.disabled = false;
+          if(d && d.device === 'focos-c7'){
+            applyDeviceConfigData(ip, d, true, 'cloud');
+            showToast('Ajustes aplicados vía Cloud Relay');
+          } else {
+            showToast('Sin confirmación válida del controlador.', true);
+          }
+        })
+        .catch(function(err){
+          btn.disabled = false;
+          showToast((err && err.message) ? err.message : ('Error comunicando con ' + ip + '.'), true);
+        });
+      return;
+    }
     btn.disabled = false;
     showToast('Error de comunicación con ' + ip + '.', true);
   });
@@ -2926,7 +3138,7 @@ function scanWifiNetworks(){
   if(!ip){ $('device_dialog').showModal(); showToast('Conecta primero tu ESP8266.', true); return; }
   var btn = $('btn_scan_wifi');
 
-  if(shouldUseHttpBridge(ip)){
+  if(shouldUseHttpBridge(ip) && !supportsCloudRelay(ip)){
     try {
       var w = window.open('http://' + ip + '/scan_wifi?bridge=1&t=' + Date.now(), 'focos_c7_wifi', 'width=340,height=180,left=9999,top=9999');
       if(!w){ showToast('Permite ventanas emergentes para escanear Wi-Fi desde HTTPS.', true); return; }
@@ -2943,14 +3155,37 @@ function scanWifiNetworks(){
 
   btn.disabled = true; btn.textContent = 'Buscando redes...';
   var base = getBaseUrl();
-  fetch(base + '/scan_wifi?t=' + Date.now())
-    .then(function(r){ return r.json(); })
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, (!IS_LOCAL_HOST && location.protocol === 'https:' && !_directFetchOk[ip]) ? 850 : 7500);
+
+  fetch(base + '/scan_wifi?t=' + Date.now(), { signal: ctrl.signal })
+    .then(function(r){
+      clearTimeout(tid);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(nets){
+      _directFetchOk[ip] = true;
       btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
       renderScannedWifiList(nets);
       showToast(nets.length + ' redes encontradas');
     })
     .catch(function(){
+      clearTimeout(tid);
+      if(supportsCloudRelay(ip)){
+        sendViaCloudRelay(ip, { scan_wifi: 1 }, 8500)
+          .then(function(res){
+            btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
+            var nets = (res && Array.isArray(res.networks)) ? res.networks : [];
+            renderScannedWifiList(nets);
+            showToast(nets.length + ' redes encontradas vía Cloud Relay');
+          })
+          .catch(function(){
+            btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
+            showToast('No se pudo escanear redes en ' + ip + '.', true);
+          });
+        return;
+      }
       btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
       showToast('No se pudo comunicar con ' + ip, true);
     });
@@ -2965,26 +3200,59 @@ function saveWifiCredentials(){
 
   openConfirmDialog(
     'Cambiar red Wi-Fi',
-    'El controlador ' + ip + ' guardará "' + ssid + '" y se reiniciará para conectarse. Verás 2 destellos verdes si conecta, o 2 rojos si falla y vuelve a abrir FocosC7.',
+    'El controlador ' + ip + ' guardará "' + ssid + '" y se reiniciará para conectarse. Verás 3 destellos verdes si conecta, o 3 rojos si falla y vuelve a abrir FocosC7.',
     'Guardar y conectar',
     false,
     function(){
       var params = { save_wifi: 1, wifi_ssid: ssid, wifi_pass: pass };
-      if(shouldUseHttpBridge(ip)){
-        sendViaHttpBridge(ip, params, 'Wi-Fi enviado a ' + ip, false);
+      if(!IS_LOCAL_HOST && location.protocol === 'https:' && !_directFetchOk[ip]){
+        openGetBridgePopup(ip, params, 'Wi-Fi guardado en ' + ip + '. Reiniciando...', false, null);
         return;
       }
       var base = getBaseUrl();
-      var body = 'save_wifi=1&wifi_ssid=' + encodeURIComponent(ssid) + '&wifi_pass=' + encodeURIComponent(pass);
       fetch(base + '/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body
+        body: buildQueryString(params)
       })
-      .then(function(){ showToast('Wi-Fi guardado. Reiniciando ' + ip + '...'); })
-      .catch(function(){ showToast('No se pudo enviar Wi-Fi a ' + ip, true); });
+      .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); showToast('Wi-Fi guardado. Reiniciando ' + ip + '...'); })
+      .catch(function(){
+        showToast('Tu red actual bloquea envío local de clave. Usa "Olvidar red (abrir FocosC7)" y configúrala ahí.', true);
+      });
     }
   );
+}
+
+function sendActionHybrid(ip, paramsObj, opts){
+  if(!IS_LOCAL_HOST && location.protocol === 'https:' && !_directFetchOk[ip] && !supportsCloudRelay(ip)){
+    openGetBridgePopup(ip, paramsObj, opts.pendingMsg, false, null);
+    return;
+  }
+  var base = getBaseUrl();
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, (!IS_LOCAL_HOST && location.protocol === 'https:' && !_directFetchOk[ip]) ? 850 : 2600);
+  fetch(base + '/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: buildQueryString(paramsObj),
+    signal: ctrl.signal
+  })
+  .then(function(r){
+    clearTimeout(tid);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    _directFetchOk[ip] = true;
+    showToast(opts.successMsg);
+  })
+  .catch(function(){
+    clearTimeout(tid);
+    if(supportsCloudRelay(ip)){
+      sendViaCloudRelay(ip, paramsObj, opts.timeoutMs || 4500)
+        .then(function(){ showToast(opts.cloudMsg || opts.successMsg); })
+        .catch(function(err){ showToast((err && err.message) ? err.message : ('No se pudo comunicar con ' + ip), true); });
+      return;
+    }
+    showToast('No se pudo comunicar con ' + ip, true);
+  });
 }
 
 function requestResetWifi(){
@@ -2996,18 +3264,11 @@ function requestResetWifi(){
     'Olvidar y reiniciar',
     true,
     function(){
-      if(shouldUseHttpBridge(ip)){
-        sendViaHttpBridge(ip, { reset_wifi: 1 }, 'Wi-Fi restablecido en ' + ip, false);
-        return;
-      }
-      var base = getBaseUrl();
-      fetch(base + '/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'reset_wifi=1'
-      })
-      .then(function(){ showToast('Red olvidada. Iniciando AP FocosC7...'); })
-      .catch(function(){ showToast('No se pudo comunicar con ' + ip, true); });
+      sendActionHybrid(ip, { reset_wifi: 1 }, {
+        pendingMsg: 'Wi-Fi restablecido en ' + ip,
+        successMsg: 'Red olvidada. Iniciando AP FocosC7...',
+        cloudMsg: 'Red olvidada vía Cloud Relay. Conéctate a FocosC7 (192.168.4.1).'
+      });
     }
   );
 }
@@ -3022,18 +3283,12 @@ function requestDeviceOta(){
     'Iniciar OTA',
     false,
     function(){
-      if(shouldUseHttpBridge(ip)){
-        sendViaHttpBridge(ip, { start_ota: 1 }, 'OTA iniciada en ' + ip, false);
-        return;
-      }
-      var base = getBaseUrl();
-      fetch(base + '/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'start_ota=1'
-      })
-      .then(function(){ showToast('OTA iniciada en ' + ip + '. Observa los 8 focos.'); })
-      .catch(function(){ showToast('No se pudo iniciar OTA en ' + ip, true); });
+      sendActionHybrid(ip, { start_ota: 1 }, {
+        pendingMsg: 'OTA iniciada en ' + ip,
+        successMsg: 'OTA iniciada en ' + ip + '. Observa los 8 focos.',
+        cloudMsg: 'OTA iniciada vía Cloud Relay en ' + ip + '. Observa los 8 focos.',
+        timeoutMs: 5500
+      });
     }
   );
 }
@@ -3047,18 +3302,11 @@ function requestDeviceReboot(){
     'Reiniciar',
     false,
     function(){
-      if(shouldUseHttpBridge(ip)){
-        sendViaHttpBridge(ip, { reboot: 1 }, 'Reiniciando ' + ip + '...', false);
-        return;
-      }
-      var base = getBaseUrl();
-      fetch(base + '/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'reboot=1'
-      })
-      .then(function(){ showToast('Reiniciando ' + ip + '...'); })
-      .catch(function(){ showToast('No se pudo reiniciar ' + ip, true); });
+      sendActionHybrid(ip, { reboot: 1 }, {
+        pendingMsg: 'Reiniciando ' + ip + '...',
+        successMsg: 'Reiniciando ' + ip + '...',
+        cloudMsg: 'Reinicio enviado vía Cloud Relay a ' + ip + '...'
+      });
     }
   );
 }
@@ -3100,7 +3348,7 @@ function uint32ToIp(n){
 function renderFoundDeviceCard(ip, data, skipAutoConnect){
   var realIp = normalizeIp((data && data.ip && data.ip !== '0.0.0.0') ? data.ip : ip);
   if(!realIp || !data || data.device !== 'focos-c7') return;
-  deviceCache[realIp] = data;
+  deviceCache[realIp] = Object.assign({}, deviceCache[realIp] || {}, data);
 
   var box = $('found_devices');
   if(!box) return;
@@ -3145,7 +3393,7 @@ function renderFoundDeviceCard(ip, data, skipAutoConnect){
 function pickDeviceFromDialog(ip){
   var clean = normalizeIp(ip);
   var preWin = null;
-  if(shouldUseHttpBridge(clean)){
+  if(shouldUseHttpBridge(clean) && !supportsCloudRelay(clean)){
     try { preWin = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
   }
   connectToDevice(clean, true, preWin);
@@ -3188,6 +3436,7 @@ async function fetchCloudRadarDevices(){
   list.forEach(function(item){
     var d = item.data;
     _radarCache[d.ip] = d;
+    deviceCache[d.ip] = Object.assign({}, deviceCache[d.ip] || {}, d);
     renderFoundDeviceCard(d.ip, d, true);
     result.push(d);
   });
@@ -3309,7 +3558,7 @@ async function startUniversalScan(){
   $('scan_prog_fill').style.inlineSize = '15%';
 
   var rtcPrefixPromise = detectWebRtcSubnetPrefix();
-  var res = await Promise.all([
+  await Promise.all([
     fetchCloudRadarDevices(),
     fetchCloudVersion(false),
     probeDeviceHost('focosc7.local', 900),
@@ -3365,7 +3614,9 @@ async function startCustomRangeScan(){
     var single = ipToUint32(clean);
     if(single !== null){
       var singleIp = uint32ToIp(single);
-      var preW = shouldUseHttpBridge(singleIp) ? window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999') : null;
+      var preW = (shouldUseHttpBridge(singleIp) && !supportsCloudRelay(singleIp))
+        ? window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999')
+        : null;
       connectToDevice(singleIp, true, preW);
       return;
     }
@@ -3447,6 +3698,10 @@ async function startCustomRangeScan(){
 })();
 
 // ── Inicio ──
+if(location.hash === '#settings') switchTab('settings');
+else if(location.hash === '#wifi') switchTab('wifi');
+else switchTab('effects');
+
 if(candidateBootIp && $('manual_ip_in')) $('manual_ip_in').value = candidateBootIp;
 updateDevicePill();
 renderAllControls();
@@ -3462,9 +3717,10 @@ Promise.all([
   var radarList = results[0] || [];
   var directBoot = results[1];
   if(directBoot && candidateBootIp){
-    applyDeviceConfigData(candidateBootIp, directBoot, false);
+    applyDeviceConfigData(candidateBootIp, directBoot, false, 'direct');
   } else if(candidateBootIp && _radarCache[candidateBootIp]){
-    applyDeviceConfigData(candidateBootIp, _radarCache[candidateBootIp], false);
+    if(supportsCloudRelay(candidateBootIp)) connectToDevice(candidateBootIp, false);
+    else applyDeviceConfigData(candidateBootIp, _radarCache[candidateBootIp], false, 'bridge');
   } else if(!state.connectedIp && radarList.length > 0){
     connectToDevice(radarList[0].ip, false);
   } else if(candidateBootIp && !IS_LOCAL_HOST){

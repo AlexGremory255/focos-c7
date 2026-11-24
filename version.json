@@ -1,12 +1,11 @@
 {
-  "version": "1.0.2",
-  "build_time": "23/11/2026 23:18",
-  "notes": "Auditoría completa Wi-Fi, escáner en portal local, Cloud Radar HTTPS y validación estricta de IP (v1.0.2)",
+  "version": "1.0.3",
+  "build_time": "23/11/2026 23:55",
+  "notes": "Vista previa/velocidad solo en Efectos, arranque silencioso hasta mostrar resultado Wi-Fi y Cloud Relay HTTPS (v1.0.3)",
   "changelog": [
-    "Escáner interactivo de redes Wi-Fi cercanas integrado directo en el portal local (192.168.4.1 / /) con portal cautivo automático.",
-    "Descubrimiento automático vía Cloud Radar HTTPS desde GitHub Pages y destellos de estado al arrancar (2 verdes = Wi-Fi OK, 2 rojos = falló).",
-    "Validación estricta de IP en GitHub Pages: rechaza IPs incorrectas o de otros equipos y corrige el puente HTTP en navegadores móviles.",
-    "Ciclo Wi-Fi, AP FocosC7 y mDNS estabilizado (WiFi.persistent(false), hostname Focos-C7, 15s de espera Mesh y sin saltos de canal)."
+    "Vista previa de focos y controles de velocidad/aleatorio visibles únicamente en la pestaña Efectos.",
+    "Arranque silencioso al encender: luces apagadas durante el intento Wi-Fi, seguidas de 3 destellos verdes si conectó o 3 rojos si falló.",
+    "Eliminada la advertencia de formulario inseguro usando puente HTTP GET y agregado Cloud Relay HTTPS para operar incluso en redes Guest aisladas."
   ],
   "url": "https://alexgremory255.github.io/focos-c7/firmware.bin",
   "fallback_url": "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin",

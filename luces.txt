@@ -7,6 +7,8 @@
 #include <WiFiUdp.h>
 #include <DNSServer.h>
 #include <EEPROM.h>
+#include <lwip/dns.h>
+#include <lwip/tcp.h>
 
 // ============================================================================
 //  Focos C7 Studio - Controlador Wi-Fi 8 Canales para ESP8266 (Arduino IDE)
@@ -15,7 +17,7 @@
 //  "Generic ESP8266 Module" (Flash Size: 4MB FS:2MB OTA:~1019KB)
 // ============================================================================
 
-#define FIRMWARE_VERSION "1.0.2"
+#define FIRMWARE_VERSION "1.0.3"
 
 // Mapeo GPIO por si se compila con "Generic ESP8266 Module" en Arduino IDE
 #ifndef D0
@@ -38,9 +40,9 @@ const char* AP_SSID   = "FocosC7";
 const char* AP_PASS   = "focos1234";      // minimo 8 caracteres
 const char* MDNS_NAME = "focosc7";        // http://focosc7.local
 
-// Estudio Web (GitHub Pages), Cloud Radar y endpoints Cloud OTA
+// Estudio Web (GitHub Pages), Cloud Radar / Relay y endpoints Cloud OTA
 const char* STUDIO_URL       = "https://alexgremory255.github.io/focos-c7/";
-const char* RADAR_URL        = "http://ntfy.sh/focosc7_alexgremory255_radar_v1";
+const char* RADAR_TOPIC      = "focosc7_alexgremory255_radar_v1";
 const char* OTA_FIRMWARE_URL = "https://alexgremory255.github.io/focos-c7/firmware.bin";
 const char* OTA_FALLBACK_URL = "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin";
 
@@ -73,6 +75,11 @@ char wifiSsid[33] = "";
 char wifiPass[65] = "";
 uint8_t wifiEstadoCfg = 0;                // 0=default, WIFI_MAGIC_SET, WIFI_MAGIC_RESET
 
+char deviceMacClean[13] = "";
+char deviceCmdTopic[32] = "";
+char deviceAckTopic[32] = "";
+char ultimaReqId[24]    = "";
+
 unsigned long ultimo = 0, ultimoDDP = 0, proxCambio = 0;
 uint32_t paso = 0;
 bool apActivo = false;
@@ -83,9 +90,47 @@ bool pendienteGuardar = false;
 unsigned long tCambio = 0;
 bool radarPendiente = false;
 unsigned long tRadar = 0;
+bool ackPendiente = false;
+String ackJsonPayload;
 bool otaPendiente = false;
+bool otaDiferida = false;
+unsigned long tOtaDiferida = 0;
 bool reinicioPendiente = false;
 unsigned long tReinicio = 0;
+
+// Estado motor Cloud lwIP no bloqueante (DNS + Publisher + Suscriptor /raw)
+ip_addr_t ntfyAddr;
+bool ntfyIpValido = false;
+bool dnsBuscando = false;
+unsigned long tUltimoDns = 0;
+unsigned long tDnsResuelto = 0;
+uint8_t cloudFallas = 0;
+
+struct tcp_pcb* pubPcb = nullptr;
+String pubReqBuf;
+size_t pubOffset = 0;
+unsigned long tInicioPub = 0;
+unsigned long tUltimoPubErr = 0;
+
+struct tcp_pcb* cmdPcb = nullptr;
+bool cmdConectado = false;
+bool cmdHeadersOk = false;
+bool cmdPrimeraLineaLeida = false;
+bool cmdStatusOk = false;
+uint8_t cmdHdrMatch = 0;
+uint8_t cmdStatusLen = 0;
+char cmdStatusBuf[32] = "";
+uint16_t cmdLineaLen = 0;
+char cmdLineaBuf[320] = "";
+bool cmdPendiente = false;
+char cmdPendienteBuf[320] = "";
+unsigned long tInicioCmd = 0;
+unsigned long tUltimaActividadCmd = 0;
+unsigned long tUltimoCierreCmd = 0;
+
+void programarRadar();
+void programarAck(const String& json);
+void cerrarConexionesCloud();
 
 // ---------- Helpers ----------
 bool tieneWifiValido() {
@@ -373,18 +418,47 @@ void refrescarSiToca() {
   }
 }
 
-// ---------- Wi-Fi, mDNS, Portal Cautivo y Cloud Radar ----------
-void destellarPares(uint8_t a, uint8_t b, int veces, int msOn, int msOff) {
-  todos(false);
+// ---------- Wi-Fi, mDNS, Portal Cautivo y Cloud Relay No Bloqueante ----------
+void inicializarTopicsCloud() {
+  String raw = WiFi.macAddress();
+  int k = 0;
+  for (unsigned int i = 0; i < raw.length() && k < 12; i++) {
+    char c = raw.charAt(i);
+    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+      if (c >= 'a' && c <= 'f') c = (char)(c - 'a' + 'A');
+      deviceMacClean[k++] = c;
+    }
+  }
+  deviceMacClean[k] = '\0';
+  if (k > 0) {
+    snprintf(deviceCmdTopic, sizeof(deviceCmdTopic), "focosc7_cmd_%s", deviceMacClean);
+    snprintf(deviceAckTopic, sizeof(deviceAckTopic), "focosc7_ack_%s", deviceMacClean);
+  }
+}
+
+void destellarFisicos(uint8_t fisA, uint8_t fisB, int veces, int msOn, int msOff) {
+  for (uint8_t i = 0; i < N; i++) {
+    estadoLogico[i] = false;
+    canalFisico(i, false);
+  }
   for (int v = 0; v < veces; v++) {
-    canal(a, true); canal(b, true); delay(msOn);
-    canal(a, false); canal(b, false); delay(msOff);
+    canalFisico(fisA, true);
+    canalFisico(fisB, true);
+    delay(msOn);
+    canalFisico(fisA, false);
+    canalFisico(fisB, false);
+    delay(msOff);
   }
 }
 
 void programarRadar() {
   radarPendiente = true;
   tRadar = millis();
+}
+
+void programarAck(const String& json) {
+  ackJsonPayload = json;
+  ackPendiente = true;
 }
 
 void iniciarMDNS() {
@@ -420,6 +494,7 @@ void vigilarWiFi() {
   if (!tieneWifiValido()) {
     estabaConectado = false;
     mdnsActivo = false;
+    cerrarConexionesCloud();
     if (!apActivo) iniciarAP();
     return;
   }
@@ -445,6 +520,7 @@ void vigilarWiFi() {
   } else {
     estabaConectado = false;
     mdnsActivo = false;
+    cerrarConexionesCloud();
     if (!apActivo) {
       iniciarAP();
       ultimoReintentoSTA = millis();
@@ -502,8 +578,10 @@ void destellarTodos(int veces, int msOn, int msOff) {
 
 void ejecutarCloudOTA() {
   otaPendiente = false;
+  otaDiferida = false;
   Serial.println("[OTA] Iniciando actualizacion Cloud OTA...");
 
+  cerrarConexionesCloud();
   udp.stop();
   if (mdnsActivo) { MDNS.end(); mdnsActivo = false; }
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
@@ -555,7 +633,8 @@ void ejecutarCloudOTA() {
     ESP.restart();
   } else {
     Serial.println("[OTA] Fallo la actualizacion; restaurando operacion normal.");
-    destellarPares(0, 4, 2, 160, 140);
+    destellarFisicos(0, 4, 3, 180, 150);
+    delay(250);
     udp.begin(4048);
     iniciarMDNS();
     setPatron(patron);
@@ -574,6 +653,7 @@ void enviarCabecerasCORS() {
 }
 
 String construirJsonConfig() {
+  if (deviceMacClean[0] == '\0') inicializarTopicsCloud();
   String ipAct = (WiFi.status() == WL_CONNECTED)
                    ? WiFi.localIP().toString()
                    : WiFi.softAPIP().toString();
@@ -584,6 +664,13 @@ String construirJsonConfig() {
   json += "\"device\":\"focos-c7\"";
   json += ",\"fw_ver\":\"" FIRMWARE_VERSION "\"";
   json += ",\"mac\":\"" + WiFi.macAddress() + "\"";
+  if (deviceCmdTopic[0] != '\0') {
+    json += ",\"cmd_topic\":\"" + String(deviceCmdTopic) + "\"";
+    json += ",\"ack_topic\":\"" + String(deviceAckTopic) + "\"";
+  }
+  if (ultimaReqId[0] != '\0') {
+    json += ",\"req_id\":\"" + escaparJson(String(ultimaReqId)) + "\"";
+  }
   json += ",\"ip\":\"" + ipAct + "\"";
   json += ",\"ssid\":\"" + escaparJson(ssidAct) + "\"";
   json += ",\"rssi\":" + String(WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0);
@@ -604,17 +691,565 @@ String construirJsonConfig() {
   return json;
 }
 
-void publicarRadar() {
-  if (WiFi.status() != WL_CONNECTED || ddpActivo()) return;
-  WiFiClient cli;
-  cli.setTimeout(1200);
-  HTTPClient http;
-  http.setTimeout(1200);
-  http.setReuse(false);
-  if (http.begin(cli, RADAR_URL)) {
-    http.addHeader("Content-Type", "application/json");
-    http.POST(construirJsonConfig());
-    http.end();
+String escanearRedesJson(int maxRedes = 12) {
+  if (WiFi.getMode() == WIFI_AP) {
+    WiFi.mode(WIFI_AP_STA);
+    delay(40);
+  }
+  int total = WiFi.scanNetworks(false, false);
+  int elegibles[24];
+  int cant = 0;
+
+  for (int i = 0; i < total; i++) {
+    String s = WiFi.SSID(i);
+    if (s.length() == 0) continue;
+    int rssi = WiFi.RSSI(i);
+
+    bool repetidaMenor = false;
+    for (int j = 0; j < total; j++) {
+      if (j == i) continue;
+      if (WiFi.SSID(j) == s) {
+        int rj = WiFi.RSSI(j);
+        if (rj > rssi || (rj == rssi && j < i)) {
+          repetidaMenor = true;
+          break;
+        }
+      }
+    }
+    if (!repetidaMenor && cant < 24) {
+      elegibles[cant++] = i;
+    }
+  }
+
+  for (int a = 0; a < cant - 1; a++) {
+    for (int b = a + 1; b < cant; b++) {
+      if (WiFi.RSSI(elegibles[b]) > WiFi.RSSI(elegibles[a])) {
+        int tmp = elegibles[a];
+        elegibles[a] = elegibles[b];
+        elegibles[b] = tmp;
+      }
+    }
+  }
+
+  int limite = (cant < maxRedes) ? cant : maxRedes;
+  String lista = "[";
+  for (int k = 0; k < limite; k++) {
+    int idx = elegibles[k];
+    if (k > 0) lista += ",";
+    bool abierta = (WiFi.encryptionType(idx) == ENC_TYPE_NONE);
+    lista += "{\"ssid\":\"" + escaparJson(WiFi.SSID(idx)) + "\",\"rssi\":" + String(WiFi.RSSI(idx)) + ",\"open\":" + String(abierta ? 1 : 0) + "}";
+  }
+  lista += "]";
+  WiFi.scanDelete();
+  return lista;
+}
+
+// ---------- Motor Cloud Asincrono lwIP (0 ms bloqueo en loop) ----------
+static void cbDnsNtfy(const char* name, const ip_addr_t* ipaddr, void* arg) {
+  (void)name;
+  (void)arg;
+  dnsBuscando = false;
+  if (ipaddr) {
+    ntfyAddr = *ipaddr;
+    ntfyIpValido = true;
+    tDnsResuelto = millis();
+  } else {
+    ntfyIpValido = false;
+  }
+}
+
+void asegurarDnsNtfy() {
+  if (dnsBuscando) return;
+  if (ntfyIpValido && (millis() - tDnsResuelto < 300000UL)) return;
+  if (tUltimoDns != 0 && (millis() - tUltimoDns < 10000UL)) return;
+  tUltimoDns = millis();
+  dnsBuscando = true;
+  err_t res = dns_gethostbyname("ntfy.sh", &ntfyAddr, cbDnsNtfy, nullptr);
+  if (res == ERR_OK) {
+    dnsBuscando = false;
+    ntfyIpValido = true;
+    tDnsResuelto = millis();
+  } else if (res != ERR_INPROGRESS) {
+    dnsBuscando = false;
+    ntfyIpValido = false;
+  }
+}
+
+static err_t cerrarPubPcb(struct tcp_pcb* tpcb, bool abortar) {
+  if (tpcb) {
+    tcp_arg(tpcb, nullptr);
+    tcp_recv(tpcb, nullptr);
+    tcp_sent(tpcb, nullptr);
+    tcp_err(tpcb, nullptr);
+    if (tpcb == pubPcb) pubPcb = nullptr;
+    pubReqBuf = "";
+    pubOffset = 0;
+    if (abortar || tcp_close(tpcb) != ERR_OK) {
+      tcp_abort(tpcb);
+      return ERR_ABRT;
+    }
+  } else {
+    pubPcb = nullptr;
+    pubReqBuf = "";
+    pubOffset = 0;
+  }
+  return ERR_OK;
+}
+
+static err_t enviarChunkPub(struct tcp_pcb* tpcb) {
+  while (pubOffset < pubReqBuf.length()) {
+    u16_t avail = tcp_sndbuf(tpcb);
+    if (avail == 0) break;
+    size_t rem = pubReqBuf.length() - pubOffset;
+    u16_t chunk = (avail < rem) ? avail : (u16_t)rem;
+    err_t err = tcp_write(tpcb, pubReqBuf.c_str() + pubOffset, chunk, TCP_WRITE_FLAG_COPY);
+    if (err == ERR_OK) {
+      pubOffset += chunk;
+    } else if (err == ERR_MEM) {
+      break;
+    } else {
+      return cerrarPubPcb(tpcb, true);
+    }
+  }
+  tcp_output(tpcb);
+  return ERR_OK;
+}
+
+static err_t cbPubSent(void* arg, struct tcp_pcb* tpcb, u16_t len) {
+  (void)arg;
+  (void)len;
+  return enviarChunkPub(tpcb);
+}
+
+static err_t cbPubRecv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err) {
+  (void)arg;
+  if (!p) {
+    return cerrarPubPcb(tpcb, false);
+  }
+  if (err != ERR_OK) {
+    pbuf_free(p);
+    return cerrarPubPcb(tpcb, true);
+  }
+  tcp_recved(tpcb, p->tot_len);
+  pbuf_free(p);
+  return ERR_OK;
+}
+
+static void cbPubErr(void* arg, err_t err) {
+  (void)arg;
+  (void)err;
+  pubPcb = nullptr;
+  pubReqBuf = "";
+  pubOffset = 0;
+  tUltimoPubErr = millis();
+  if (++cloudFallas >= 3) {
+    ntfyIpValido = false;
+    cloudFallas = 0;
+  }
+}
+
+static err_t cbPubConnected(void* arg, struct tcp_pcb* tpcb, err_t err) {
+  (void)arg;
+  if (err != ERR_OK) {
+    return cerrarPubPcb(tpcb, true);
+  }
+  cloudFallas = 0;
+  return enviarChunkPub(tpcb);
+}
+
+void iniciarPublicacionHttp(const char* topic, const String& body) {
+  if (!ntfyIpValido || pubPcb != nullptr || !topic || topic[0] == '\0') return;
+  pubReqBuf = "";
+  pubReqBuf.reserve(body.length() + 140);
+  pubReqBuf = F("POST /");
+  pubReqBuf += topic;
+  pubReqBuf += F(" HTTP/1.0\r\nHost: ntfy.sh\r\nContent-Type: application/json\r\nContent-Length: ");
+  pubReqBuf += String(body.length());
+  pubReqBuf += F("\r\nConnection: close\r\n\r\n");
+  pubReqBuf += body;
+  pubOffset = 0;
+
+  struct tcp_pcb* pcb = tcp_new();
+  if (!pcb) {
+    pubReqBuf = "";
+    tUltimoPubErr = millis();
+    return;
+  }
+  pubPcb = pcb;
+  tInicioPub = millis();
+  tcp_err(pcb, cbPubErr);
+  tcp_recv(pcb, cbPubRecv);
+  tcp_sent(pcb, cbPubSent);
+  err_t cErr = tcp_connect(pcb, &ntfyAddr, 80, cbPubConnected);
+  if (cErr != ERR_OK) {
+    cerrarPubPcb(pcb, true);
+    tUltimoPubErr = millis();
+  }
+}
+
+static err_t cerrarCmdPcb(struct tcp_pcb* tpcb, bool abortar) {
+  if (tpcb) {
+    tcp_arg(tpcb, nullptr);
+    tcp_recv(tpcb, nullptr);
+    tcp_sent(tpcb, nullptr);
+    tcp_err(tpcb, nullptr);
+    if (tpcb == cmdPcb) cmdPcb = nullptr;
+    cmdConectado = false;
+    tUltimoCierreCmd = millis();
+    if (abortar || tcp_close(tpcb) != ERR_OK) {
+      tcp_abort(tpcb);
+      return ERR_ABRT;
+    }
+  } else {
+    cmdPcb = nullptr;
+    cmdConectado = false;
+    tUltimoCierreCmd = millis();
+  }
+  return ERR_OK;
+}
+
+static err_t cbCmdRecv(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err) {
+  (void)arg;
+  if (!p) {
+    return cerrarCmdPcb(tpcb, false);
+  }
+  if (err != ERR_OK) {
+    pbuf_free(p);
+    return cerrarCmdPcb(tpcb, true);
+  }
+
+  tUltimaActividadCmd = millis();
+  bool badHttp = false;
+
+  for (struct pbuf* q = p; q != nullptr && !badHttp; q = q->next) {
+    const char* bytes = (const char*)q->payload;
+    for (u16_t k = 0; k < q->len; k++) {
+      char c = bytes[k];
+      if (!cmdHeadersOk) {
+        if (!cmdPrimeraLineaLeida) {
+          if (c == '\n') {
+            cmdStatusBuf[cmdStatusLen] = '\0';
+            cmdPrimeraLineaLeida = true;
+            cmdStatusOk = (strstr(cmdStatusBuf, " 200") != nullptr);
+            if (!cmdStatusOk) {
+              badHttp = true;
+              break;
+            }
+          } else if (c != '\r' && cmdStatusLen < sizeof(cmdStatusBuf) - 1) {
+            cmdStatusBuf[cmdStatusLen++] = c;
+          }
+        }
+        if (c == '\r') {
+          cmdHdrMatch = (cmdHdrMatch == 2) ? 3 : 1;
+        } else if (c == '\n') {
+          if (cmdHdrMatch == 1) cmdHdrMatch = 2;
+          else if (cmdHdrMatch == 3) { cmdHdrMatch = 4; cmdHeadersOk = true; }
+          else cmdHdrMatch = 0;
+        } else {
+          cmdHdrMatch = 0;
+        }
+      } else {
+        if (c == '\r') continue;
+        if (c == '\n') {
+          cmdLineaBuf[cmdLineaLen] = '\0';
+          if (strncmp(cmdLineaBuf, "cmd=1&", 6) == 0 && !cmdPendiente) {
+            strlcpy(cmdPendienteBuf, cmdLineaBuf, sizeof(cmdPendienteBuf));
+            cmdPendiente = true;
+          }
+          cmdLineaLen = 0;
+        } else if (cmdLineaLen < sizeof(cmdLineaBuf) - 1) {
+          cmdLineaBuf[cmdLineaLen++] = c;
+        }
+      }
+    }
+  }
+
+  tcp_recved(tpcb, p->tot_len);
+  pbuf_free(p);
+
+  if (badHttp) {
+    return cerrarCmdPcb(tpcb, true);
+  }
+  return ERR_OK;
+}
+
+static void cbCmdErr(void* arg, err_t err) {
+  (void)arg;
+  (void)err;
+  cmdPcb = nullptr;
+  cmdConectado = false;
+  tUltimoCierreCmd = millis();
+  if (++cloudFallas >= 3) {
+    ntfyIpValido = false;
+    cloudFallas = 0;
+  }
+}
+
+static err_t cbCmdConnected(void* arg, struct tcp_pcb* tpcb, err_t err) {
+  (void)arg;
+  if (err != ERR_OK) {
+    return cerrarCmdPcb(tpcb, true);
+  }
+  cloudFallas = 0;
+  cmdConectado = true;
+  cmdHeadersOk = false;
+  cmdPrimeraLineaLeida = false;
+  cmdStatusOk = false;
+  cmdStatusLen = 0;
+  cmdHdrMatch = 0;
+  cmdLineaLen = 0;
+  tUltimaActividadCmd = millis();
+
+  String req;
+  req.reserve(80);
+  req = F("GET /");
+  req += deviceCmdTopic;
+  req += F("/raw HTTP/1.0\r\nHost: ntfy.sh\r\n\r\n");
+  err_t w = tcp_write(tpcb, req.c_str(), req.length(), TCP_WRITE_FLAG_COPY);
+  if (w != ERR_OK) {
+    return cerrarCmdPcb(tpcb, true);
+  }
+  tcp_output(tpcb);
+  return ERR_OK;
+}
+
+void iniciarSuscripcionCmd() {
+  if (!ntfyIpValido || cmdPcb != nullptr || deviceCmdTopic[0] == '\0') return;
+  struct tcp_pcb* pcb = tcp_new();
+  if (!pcb) {
+    tUltimoCierreCmd = millis();
+    return;
+  }
+  cmdPcb = pcb;
+  cmdConectado = false;
+  tInicioCmd = millis();
+  tcp_err(pcb, cbCmdErr);
+  tcp_recv(pcb, cbCmdRecv);
+  err_t cErr = tcp_connect(pcb, &ntfyAddr, 80, cbCmdConnected);
+  if (cErr != ERR_OK) {
+    cerrarCmdPcb(pcb, true);
+  }
+}
+
+void cerrarConexionesCloud() {
+  if (cmdPcb) cerrarCmdPcb(cmdPcb, true);
+  if (pubPcb) cerrarPubPcb(pubPcb, true);
+  cmdPendiente = false;
+  ackPendiente = false;
+  ackJsonPayload = "";
+}
+
+String urlDecodeSeg(const char* src, int len) {
+  String out;
+  out.reserve(len);
+  for (int i = 0; i < len; i++) {
+    char c = src[i];
+    if (c == '+') {
+      out += ' ';
+    } else if (c == '%' && i + 2 < len) {
+      auto hexVal = [](char h) -> int {
+        if (h >= '0' && h <= '9') return h - '0';
+        if (h >= 'a' && h <= 'f') return h - 'a' + 10;
+        if (h >= 'A' && h <= 'F') return h - 'A' + 10;
+        return -1;
+      };
+      int hi = hexVal(src[i + 1]);
+      int lo = hexVal(src[i + 2]);
+      if (hi >= 0 && lo >= 0) {
+        out += (char)((hi << 4) | lo);
+        i += 2;
+      } else {
+        out += c;
+      }
+    } else {
+      out += c;
+    }
+  }
+  return out;
+}
+
+void procesarComandoRemoto(const char* query) {
+  if (!query || query[0] == '\0') return;
+
+  bool hasPing = false, hasScanWifi = false, hasStartOta = false, hasReboot = false, hasResetWifi = false;
+  bool hasAle = false, hasPat = false, hasVel = false, hasMin = false, hasMax = false, hasInv = false;
+  int valAle = 0, valPat = 0, valVel = 150, valMin = 30, valMax = 60, valInv = 0;
+  String reqId = "";
+
+  const char* p = query;
+  while (*p) {
+    const char* amp = strchr(p, '&');
+    int segLen = amp ? (int)(amp - p) : (int)strlen(p);
+    const char* eq = (const char*)memchr(p, '=', segLen);
+    if (eq) {
+      int kLen = (int)(eq - p);
+      int vLen = segLen - kLen - 1;
+      String k = urlDecodeSeg(p, kLen);
+      String v = urlDecodeSeg(eq + 1, vLen);
+      if      (k == "req_id")     reqId = v;
+      else if (k == "ping")       hasPing = true;
+      else if (k == "scan_wifi")  hasScanWifi = true;
+      else if (k == "start_ota")  hasStartOta = true;
+      else if (k == "reboot")     hasReboot = true;
+      else if (k == "reset_wifi") hasResetWifi = true;
+      else if (k == "aleatorio")  { hasAle = true; valAle = v.toInt(); }
+      else if (k == "patron")     { hasPat = true; valPat = v.toInt(); }
+      else if (k == "velocidad")  { hasVel = true; valVel = v.toInt(); }
+      else if (k == "ale_min")    { hasMin = true; valMin = v.toInt(); }
+      else if (k == "ale_max")    { hasMax = true; valMax = v.toInt(); }
+      else if (k == "invertir")   { hasInv = true; valInv = v.toInt(); }
+    }
+    if (!amp) break;
+    p = amp + 1;
+  }
+
+  if (reqId.length() > 0 && strcmp(reqId.c_str(), ultimaReqId) == 0) {
+    return; // Comando duplicado ya atendido
+  }
+  if (reqId.length() > 0) {
+    strlcpy(ultimaReqId, reqId.c_str(), sizeof(ultimaReqId));
+  }
+
+  String idEsc = escaparJson(String(ultimaReqId));
+
+  if (hasStartOta) {
+    programarAck("{\"device\":\"focos-c7\",\"ok\":true,\"ota\":true,\"req_id\":\"" + idEsc + "\"}");
+    otaDiferida = true;
+    tOtaDiferida = millis();
+    return;
+  }
+
+  if (hasReboot) {
+    programarAck("{\"device\":\"focos-c7\",\"ok\":true,\"reboot\":true,\"req_id\":\"" + idEsc + "\"}");
+    reinicioPendiente = true;
+    tReinicio = millis();
+    return;
+  }
+
+  if (hasResetWifi) {
+    wifiEstadoCfg = WIFI_MAGIC_RESET;
+    wifiSsid[0] = '\0';
+    wifiPass[0] = '\0';
+    guardar(true);
+    programarAck("{\"device\":\"focos-c7\",\"ok\":true,\"reset_wifi\":true,\"req_id\":\"" + idEsc + "\"}");
+    reinicioPendiente = true;
+    tReinicio = millis();
+    return;
+  }
+
+  if (hasScanWifi) {
+    String nets = escanearRedesJson(12);
+    programarAck("{\"device\":\"focos-c7\",\"type\":\"wifi_scan\",\"req_id\":\"" + idEsc + "\",\"networks\":" + nets + "}");
+    return;
+  }
+
+  if (!hasPing) {
+    bool cambioPatron = false;
+    bool huboCambio = false;
+    if (hasAle) {
+      bool nuevoAle = (valAle == 1);
+      if (nuevoAle != aleatorio) {
+        aleatorio = nuevoAle;
+        if (aleatorio) { cambioAleatorio(); cambioPatron = true; }
+      }
+      huboCambio = true;
+    }
+    if (hasPat && valPat >= 0 && valPat <= MAX_PATRON) {
+      if (!hasAle) aleatorio = false;
+      setPatron(valPat);
+      cambioPatron = true;
+      huboCambio = true;
+    }
+    if (hasVel) {
+      velocidad = (uint16_t)constrain(valVel, 30, 1000);
+      if (!hasAle) aleatorio = false;
+      huboCambio = true;
+    }
+    if (hasMin || hasMax) {
+      int mn = hasMin ? constrain(valMin, 5, 3600) : aleMin;
+      int mx = hasMax ? constrain(valMax, 5, 3600) : aleMax;
+      if (mx < mn) mx = mn;
+      aleMin = (uint16_t)mn;
+      aleMax = (uint16_t)mx;
+      if (aleatorio) programarCambio();
+      huboCambio = true;
+    }
+    if (hasInv) {
+      bool inv = (valInv == 1);
+      if (inv != invertirOrden) {
+        invertirOrden = inv;
+        aplicarOrden();
+      }
+      huboCambio = true;
+    }
+    if (cambioPatron && !ddpActivo()) {
+      avanzar();
+      ultimo = millis();
+    }
+    if (huboCambio) marcarGuardar();
+  }
+
+  programarAck(construirJsonConfig());
+  programarRadar();
+}
+
+void gestionarCloud() {
+  if (WiFi.status() != WL_CONNECTED || ddpActivo() || otaPendiente) {
+    cerrarConexionesCloud();
+    return;
+  }
+
+  if (deviceCmdTopic[0] == '\0') inicializarTopicsCloud();
+
+  if (cmdPendiente) {
+    char copia[320];
+    strlcpy(copia, cmdPendienteBuf, sizeof(copia));
+    cmdPendiente = false;
+    procesarComandoRemoto(copia);
+  }
+
+  unsigned long ahora = millis();
+
+  if (pubPcb && (ahora - tInicioPub > 5000UL)) {
+    cerrarPubPcb(pubPcb, true);
+    tUltimoPubErr = ahora;
+  }
+
+  if (cmdPcb) {
+    if (!cmdConectado && (ahora - tInicioCmd > 8000UL)) {
+      cerrarCmdPcb(cmdPcb, true);
+    } else if (cmdConectado && (ahora - tUltimaActividadCmd > 95000UL)) {
+      cerrarCmdPcb(cmdPcb, true);
+    }
+  }
+
+  if (otaDiferida) {
+    bool listoAck = (!ackPendiente && pubPcb == nullptr);
+    if ((listoAck && (ahora - tOtaDiferida > 180UL)) || (ahora - tOtaDiferida > 700UL)) {
+      otaDiferida = false;
+      otaPendiente = true;
+      return;
+    }
+  }
+
+  asegurarDnsNtfy();
+  if (!ntfyIpValido) return;
+
+  if (!otaDiferida && !reinicioPendiente && cmdPcb == nullptr &&
+      (tUltimoCierreCmd == 0 || (ahora - tUltimoCierreCmd > 6000UL))) {
+    iniciarSuscripcionCmd();
+  }
+
+  if (pubPcb == nullptr && (tUltimoPubErr == 0 || (ahora - tUltimoPubErr > 1200UL))) {
+    if (ackPendiente) {
+      ackPendiente = false;
+      String body = ackJsonPayload;
+      ackJsonPayload = "";
+      iniciarPublicacionHttp(deviceAckTopic, body);
+    } else if (radarPendiente && !otaDiferida && !reinicioPendiente && (ahora - tRadar > 1800UL)) {
+      radarPendiente = false;
+      iniciarPublicacionHttp(RADAR_TOPIC, construirJsonConfig());
+    }
   }
 }
 
@@ -765,39 +1400,7 @@ void manejarBridge() {
 }
 
 void manejarScanWifi() {
-  if (WiFi.getMode() == WIFI_AP) {
-    WiFi.mode(WIFI_AP_STA);
-    delay(40);
-  }
-  int total = WiFi.scanNetworks(false, false);
-  String lista = "[";
-  bool primero = true;
-
-  for (int i = 0; i < total; i++) {
-    String s = WiFi.SSID(i);
-    if (s.length() == 0) continue;
-    int rssi = WiFi.RSSI(i);
-
-    bool repetidaMenor = false;
-    for (int j = 0; j < total; j++) {
-      if (j == i) continue;
-      if (WiFi.SSID(j) == s) {
-        int rj = WiFi.RSSI(j);
-        if (rj > rssi || (rj == rssi && j < i)) {
-          repetidaMenor = true;
-          break;
-        }
-      }
-    }
-    if (repetidaMenor) continue;
-
-    if (!primero) lista += ",";
-    primero = false;
-    bool abierta = (WiFi.encryptionType(i) == ENC_TYPE_NONE);
-    lista += "{\"ssid\":\"" + escaparJson(s) + "\",\"rssi\":" + String(rssi) + ",\"open\":" + String(abierta ? 1 : 0) + "}";
-  }
-  lista += "]";
-  WiFi.scanDelete();
+  String lista = escanearRedesJson(12);
 
   if (server.hasArg("bridge")) {
     String html = F("<!DOCTYPE html><html><head><meta charset='utf-8'></head><body><script>var nets=");
@@ -941,21 +1544,23 @@ void paginaInicioLocal() {
 
 // ---------- Setup & Loop ----------
 void setup() {
+  for (uint8_t i = 0; i < N; i++) {
+    pinMode(PINES[i], INPUT);
+    estadoFisico[i] = false;
+    estadoLogico[i] = false;
+  }
+
   Serial.begin(115200);
-  for (uint8_t i = 0; i < N; i++) pinMode(PINES[i], INPUT);
 
   WiFi.persistent(false);
   WiFi.hostname("Focos-C7");
+  inicializarTopicsCloud();
 
   EEPROM.begin(128);
   randomSeed(ESP.getCycleCount() ^ analogRead(A0));
   cargar();
 
-  // Aplicar patron desde el primer milisegundo antes de intentar Wi-Fi
-  if (aleatorio) cambioAleatorio(); else setPatron(patron);
-  avanzar();
-  ultimo = millis();
-
+  // Mantener la serie apagada durante la conexion para distinguir claramente el resultado Wi-Fi
   if (tieneWifiValido()) {
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
@@ -964,29 +1569,31 @@ void setup() {
 
     unsigned long t0 = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - t0 < 15000)) {
-      refrescarSiToca();
-      delay(40);
+      delay(50);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("\n[Wi-Fi] Conectado! IP: %s\n", WiFi.localIP().toString().c_str());
-      destellarPares(1, 5, 2, 140, 140);   // 2 destellos verdes = Wi-Fi OK
-      setPatron(patron);
-      avanzar();
-      ultimo = millis();
+      destellarFisicos(1, 5, 3, 240, 200);   // 3 destellos verdes fisicos = Wi-Fi OK
+      delay(450);
       iniciarMDNS();
       programarRadar();
     } else {
       Serial.println("\n[Wi-Fi] No conecto en 15s; iniciando AP FocosC7.");
-      destellarPares(0, 4, 2, 140, 140);   // 2 destellos rojos = fallo Wi-Fi
-      setPatron(patron);
-      avanzar();
-      ultimo = millis();
+      destellarFisicos(0, 4, 3, 240, 200);   // 3 destellos rojos fisicos = fallo Wi-Fi
+      delay(450);
       iniciarAP();
     }
   } else {
+    destellarFisicos(0, 4, 2, 240, 200);     // 2 destellos rojos fisicos = sin Wi-Fi configurado
+    delay(450);
     iniciarAP();
   }
+
+  // Iniciar la secuencia luminosa solo despues de anunciar el estado Wi-Fi
+  if (aleatorio) cambioAleatorio(); else setPatron(patron);
+  avanzar();
+  ultimo = millis();
 
   udp.begin(4048);
 
@@ -1039,8 +1646,8 @@ void setup() {
                      "<p>Reiniciando para conectar a <b>");
       msg += escaparHtml(s);
       msg += F("</b>...</p>"
-               "<p style='color:#94a3b8;font-size:14px'>Si conecta bien ver&aacute;s <b>2 destellos verdes</b> en la serie y aparecer&aacute; autom&aacute;ticamente en GitHub Pages.<br>"
-               "Si falla la clave ver&aacute;s <b>2 destellos rojos</b> y volver&aacute; a abrirse la red <b>FocosC7</b>.</p>"
+               "<p style='color:#94a3b8;font-size:14px'>Si conecta bien ver&aacute;s <b>3 destellos verdes</b> en la serie y aparecer&aacute; autom&aacute;ticamente en GitHub Pages.<br>"
+               "Si falla la clave ver&aacute;s <b>3 destellos rojos</b> y volver&aacute; a abrirse la red <b>FocosC7</b>.</p>"
                "</body></html>");
       server.send(200, "text/html; charset=utf-8", msg);
       reinicioPendiente = true;
@@ -1070,18 +1677,15 @@ void loop() {
   recibirDDP();
   guardarSiToca();
   vigilarWiFi();
-
-  if (radarPendiente && (millis() - tRadar > 1800)) {
-    radarPendiente = false;
-    publicarRadar();
-  }
+  gestionarCloud();
 
   if (otaPendiente) {
     ejecutarCloudOTA();
     return;
   }
 
-  if (reinicioPendiente && (millis() - tReinicio > 400)) {
+  if (reinicioPendiente && (millis() - tReinicio > 750)) {
+    cerrarConexionesCloud();
     ESP.restart();
     return;
   }

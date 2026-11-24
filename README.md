@@ -4,7 +4,7 @@
 
 Controlador Wi-Fi de **8 canales** para serie de luces **Holiday Time (8 Focos LED Jumbo C7)** con **ESP8266**. Incluye estudio web **Liquid Glass** con simulador en vivo, **14 secuencias de iluminación**, cambio de red Wi-Fi desde el navegador, receptor **xLights (DDP)** y actualizaciones **Cloud OTA** directo desde GitHub.
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-v1.0.2-0ea5e9?style=flat-square)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-v1.0.3-0ea5e9?style=flat-square)
 ![Plataforma](https://img.shields.io/badge/plataforma-ESP8266-334155?style=flat-square)
 ![Serie](https://img.shields.io/badge/serie-8_Focos_C7_Jumbo-ef4444?style=flat-square)
 ![Protocolo](https://img.shields.io/badge/xLights-DDP_UDP_4048-16a34a?style=flat-square)
@@ -33,7 +33,7 @@ Controlador Wi-Fi de **8 canales** para serie de luces **Holiday Time (8 Focos L
 - **Estudio Web Liquid Glass en GitHub Pages:** Todo el apartado visual corre en el navegador ([`index.html`](index.html)) sin saturar la memoria del ESP8266, e incluye un panel local ligero de respaldo en `/` con acceso directo al estudio completo.
 - **Vista previa fiel a los focos físicos:** Simula los 8 focos jumbo C7 en su orden físico (**Rojo → Verde → Azul → Amarillo × 2**) con opción para **invertir la dirección (8 → 1)** según cómo hayas colgado la serie.
 - **14 modos de iluminación sin tirones sin internet:** El ciclo principal (`loop()`) nunca hace peticiones bloqueantes a la red; si se cae el Wi-Fi o no hay internet, las secuencias siguen corriendo al 100% de fluidez.
-- **Wi-Fi configurable desde la web + red de respaldo:** Escanea redes cercanas desde GitHub Pages, cambia de Wi-Fi sin recompilar y levanta automáticamente su red propia **`FocosC7`** (`192.168.4.1`) si no encuentra el módem.
+- **Wi-Fi configurable desde la web + Cloud Relay HTTPS:** Escanea redes cercanas desde GitHub Pages o desde el portal local (`192.168.4.1`), cambia de Wi-Fi sin recompilar, opera sin advertencias incluso en redes de invitados aisladas vía Cloud Relay HTTPS y levanta automáticamente **`FocosC7`** si no encuentra el módem.
 - **Cloud OTA por GitHub (BearSSL):** Descarga e instala `firmware.bin` desde GitHub optimizando los buffers TLS (`1024/512`) mientras los 8 focos funcionan como barra física de progreso (`0% → 100%`).
 - **Compatible con xLights (DDP):** Escucha paquetes UDP en el puerto `4048` (8 canales *Single Color*, `> 127` enciende) y vuelve automáticamente al patrón guardado a los `2 s` de detener el show.
 
@@ -87,7 +87,7 @@ No necesitas instalar librerías externas: solo el soporte oficial de **ESP8266*
 1. Abre [`focos_c7/focos_c7.ino`](focos_c7/focos_c7.ino) (o copia el contenido de [`luces.txt`](luces.txt)) en **Arduino IDE**.
 2. Selecciona la placa **NodeMCU 1.0 (ESP-12E Module)** (o **Generic ESP8266 Module** si usas la placa ESP8266 regular) con **Flash Size: `4MB (FS:2MB OTA:~1019KB)`** *(o `2MB (FS:256KB OTA:~892KB)` si tu chip trae 2 MB)*. El código incluye el mapeo `D0–D7` integrado para compilar en cualquiera de las dos opciones.
 3. Opcionalmente deja `TU_WIFI` tal cual y configúralo después conectándote desde tu celular a la red **`FocosC7`** (clave `focos1234`, portal cautivo automático en `http://192.168.4.1`) usando el botón **Buscar redes Wi-Fi cercanas**.
-4. Al reiniciar con tu red guardada: **2 destellos verdes** indican que conectó al Wi-Fi (aparecerá solo en GitHub Pages vía Cloud Radar); **2 destellos rojos** indican que falló la clave o no encontró red 2.4 GHz y reabrió **`FocosC7`**.
+4. Al reiniciar, los focos permanecen apagados hasta confirmar el Wi-Fi: **3 destellos verdes** indican que conectó (aparecerá automáticamente en GitHub Pages vía Cloud Radar / Relay); **3 destellos rojos** indican que falló la clave o no encontró red 2.4 GHz y reabrió **`FocosC7`** (o **2 destellos rojos** si aún no hay red guardada).
 
 ### 2. Actualizar sin cables (Cloud OTA)
 1. Haz tus cambios en `focos_c7/focos_c7.ino` y sube `FIRMWARE_VERSION`.
