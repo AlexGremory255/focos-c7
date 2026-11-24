@@ -421,31 +421,19 @@ body {
   font-weight: 600;
   letter-spacing: -0.015em;
   white-space: nowrap;
-  cursor: pointer;
 }
 
-.mini-bulbs {
+.brand-dots {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 0.22rem 0.42rem;
-  border-radius: var(--radius-pill);
-  background: rgba(15, 23, 42, 0.14);
-  border: 1px solid var(--stroke-soft);
 }
 
-.mini-bulb {
+.brand-dots i {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  opacity: 0.22;
-  transition: opacity 0.09s linear, transform 0.09s linear;
-}
-
-.mini-bulb[data-on="1"] {
-  opacity: 1;
-  transform: scale(1.18);
 }
 
 .topbar-actions {
@@ -658,7 +646,7 @@ body {
   display: block;
   inline-size: 100%;
   block-size: auto;
-  aspect-ratio: 640 / 340;
+  aspect-ratio: 640 / 248;
   border-radius: inherit;
 }
 
@@ -1425,22 +1413,35 @@ dialog {
 
   .app-shell {
     grid-template-columns: minmax(0, 1fr);
-    gap: 1.05rem;
-    padding-block: 0.8rem calc(6.2rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.9rem;
+    padding-block: 0.65rem calc(6.2rem + env(safe-area-inset-bottom, 0px));
   }
 
   .stage-col {
-    position: static;
-    gap: 0.72rem;
+    display: contents;
+  }
+
+  .bulbs-stage {
+    position: sticky;
+    top: calc(3.7rem + env(safe-area-inset-top, 0px) + 0.35rem);
+    z-index: 18;
+    inline-size: min(100%, 26rem, calc(21svh * 640 / 248));
+    margin-inline: auto;
+  }
+
+  .bulbs-stage::before {
+    display: none;
   }
 
   .quick-controls {
-    padding: 0.8rem 0.9rem;
-    gap: 0.5rem;
+    position: static;
+    padding: 0.78rem 0.9rem;
+    gap: 0.48rem;
   }
 
   .stage-hud {
-    padding: 0.46rem 0.75rem;
+    padding: 0.38rem 0.72rem;
+    font-size: 0.72rem;
   }
 
   .tablist {
@@ -1476,10 +1477,8 @@ dialog {
 
 @media (max-width: 30rem) {
   .topbar-inner { gap: 0.35rem; }
-  .brand { font-size: 0.82rem; gap: 0.35rem; }
-  .mini-bulbs { gap: 2px; padding: 0.18rem 0.34rem; }
-  .mini-bulb { width: 5px; height: 5px; }
-  .device-pill { padding: 0.28rem 0.5rem; font-size: 0.74rem; max-inline-size: 9.2rem; }
+  .brand { font-size: 0.84rem; gap: 0.35rem; }
+  .device-pill { padding: 0.28rem 0.5rem; font-size: 0.74rem; max-inline-size: 9.8rem; }
   .apply-btn { padding: 0.28rem 0.62rem; font-size: 0.74rem; }
 }
 </style>
@@ -1494,18 +1493,14 @@ dialog {
 
 <header class="topbar">
   <div class="topbar-inner">
-    <h1 class="brand" onclick="scrollToStageTop()" title="Subir a la vista previa">
-      <span class="mini-bulbs" id="topbar_mini_bulbs" aria-hidden="true">
-        <i class="mini-bulb" style="background:#ef4444"></i>
-        <i class="mini-bulb" style="background:#22c55e"></i>
-        <i class="mini-bulb" style="background:#3b82f6"></i>
-        <i class="mini-bulb" style="background:#f59e0b"></i>
-        <i class="mini-bulb" style="background:#ef4444"></i>
-        <i class="mini-bulb" style="background:#22c55e"></i>
-        <i class="mini-bulb" style="background:#3b82f6"></i>
-        <i class="mini-bulb" style="background:#f59e0b"></i>
+    <h1 class="brand">
+      <span class="brand-dots" aria-hidden="true">
+        <i style="background:#ef4444"></i>
+        <i style="background:#22c55e"></i>
+        <i style="background:#3b82f6"></i>
+        <i style="background:#f59e0b"></i>
       </span>
-      <span>Focos C7</span>
+      <span>Focos C7 Studio</span>
     </h1>
 
     <div class="topbar-actions">
@@ -1549,7 +1544,7 @@ dialog {
     <div class="bulbs-stage">
       <div class="bulbs-bezel">
         <div class="canvas-well">
-          <canvas id="bulbs_canvas" width="640" height="340" role="img" aria-label="Vista previa en vivo de 8 focos C7 Holiday Time"></canvas>
+          <canvas id="bulbs_canvas" width="640" height="248" role="img" aria-label="Vista previa en vivo de 8 focos C7 Holiday Time"></canvas>
           <div class="stage-hud">
             <span id="hud_pattern_name"><strong>1 · Persecución</strong></span>
             <div class="hud-badges">
@@ -1941,10 +1936,6 @@ var savedSnapshot = null;
 var deviceCache = {};
 var toastTimer = null;
 
-function scrollToStageTop(){
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
 // ── Tema claro/oscuro ──
 var osDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -2233,7 +2224,6 @@ $('ale_max_in').addEventListener('change', function(){
 $('sw_invert').addEventListener('change', function(){
   state.invertir = this.checked ? 1 : 0;
   markCanvasRedraw();
-  syncMiniBulbs();
   updateDirtyState();
 });
 
@@ -2247,48 +2237,31 @@ document.addEventListener('pointermove', function(e){
   el.style.setProperty('--my', (e.clientY - r.top) + 'px');
 }, { passive: true });
 
-// ── Simulador 60/120 FPS por Sprites Pre-Renderizados ──
+// ── Simulador 60/120 FPS por Sprites Pre-Renderizados (LED ON/OFF instantáneo) ──
 var simStep = 0;
 var simLogical = [false, false, false, false, false, false, false, false];
-var simGlow = [0, 0, 0, 0, 0, 0, 0, 0];
 var simLastStepTs = 0;
 var simNextRandomTs = 0;
-var simLastAnimTs = 0;
 var SIM_SPEEDS = [70, 100, 140, 190, 260, 340];
 
 var _bgCanvas = null;
 var _litSprites = [];
 var _canvasVisible = true;
-var _isScrolling = false;
-var _scrollTimer = 0;
 var _canvasNeedsRedraw = true;
 var _isCoarsePtr = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-var _miniDots = null;
 
-var CAN_W = 640, CAN_H = 340;
-var PAD_X = 56, WIRE_Y = 66, BULB_TOP = 96, BULB_TIP = 216;
+var CAN_W = 640, CAN_H = 248;
+var PAD_X = 54, WIRE_Y = 34, BULB_TOP = 62, BULB_TIP = 172;
 var SPACING = (CAN_W - PAD_X * 2) / 7;
-var SPR_W = 180, SPR_H = 220, SPR_CX = 90, SPR_TOP = 44;
+var SPR_W = 176, SPR_H = 204, SPR_CX = 88, SPR_TOP = 40;
 
 function markCanvasRedraw(){ _canvasNeedsRedraw = true; }
-
-function syncMiniBulbs(){
-  if(!_miniDots){
-    var box = $('topbar_mini_bulbs');
-    if(box) _miniDots = box.querySelectorAll('.mini-bulb');
-  }
-  if(!_miniDots || _miniDots.length !== 8) return;
-  for(var phys = 0; phys < 8; phys++){
-    var logIdx = state.invertir ? (7 - phys) : phys;
-    _miniDots[phys].setAttribute('data-on', simLogical[logIdx] ? '1' : '0');
-  }
-}
 
 function traceBulbPath(ctx, cx, top, tip){
   ctx.beginPath();
   ctx.moveTo(cx - 12, top);
-  ctx.bezierCurveTo(cx - 32, top + 34, cx - 28, top + 86, cx, tip);
-  ctx.bezierCurveTo(cx + 28, top + 86, cx + 32, top + 34, cx + 12, top);
+  ctx.bezierCurveTo(cx - 31, top + 32, cx - 27, top + 80, cx, tip);
+  ctx.bezierCurveTo(cx + 27, top + 80, cx + 31, top + 32, cx + 12, top);
   ctx.closePath();
 }
 
@@ -2316,7 +2289,7 @@ function buildBulbCaches(){
   for(var c = 0; c < 7; c++){
     var x1 = PAD_X + c * SPACING;
     var x2 = PAD_X + (c + 1) * SPACING;
-    bctx.quadraticCurveTo((x1 + x2) * 0.5, WIRE_Y + 13, x2, WIRE_Y);
+    bctx.quadraticCurveTo((x1 + x2) * 0.5, WIRE_Y + 12, x2, WIRE_Y);
   }
   bctx.quadraticCurveTo(CAN_W - PAD_X * 0.5, WIRE_Y + 2, CAN_W, WIRE_Y - 8);
   bctx.stroke();
@@ -2331,30 +2304,30 @@ function buildBulbCaches(){
 
     // Casquillo
     bctx.fillStyle = '#193727';
-    bctx.fillRect(cx - 5, WIRE_Y - 6, 10, 10);
-    var sockGrad = bctx.createLinearGradient(cx - 14, 0, cx + 14, 0);
+    bctx.fillRect(cx - 5, WIRE_Y - 5, 10, 9);
+    var sockGrad = bctx.createLinearGradient(cx - 13, 0, cx + 13, 0);
     sockGrad.addColorStop(0, '#463718');
     sockGrad.addColorStop(0.35, '#8c6f2d');
     sockGrad.addColorStop(0.7, '#5c481c');
     sockGrad.addColorStop(1, '#2b210d');
     bctx.fillStyle = sockGrad;
     bctx.beginPath();
-    bctx.roundRect(cx - 13, WIRE_Y + 4, 26, 28, 5);
+    bctx.roundRect(cx - 12, WIRE_Y + 4, 24, 24, 5);
     bctx.fill();
 
     bctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    bctx.lineWidth = 1.3;
-    for(var r = 10; r <= 24; r += 6){
+    bctx.lineWidth = 1.2;
+    for(var r = 10; r <= 22; r += 6){
       bctx.beginPath();
-      bctx.moveTo(cx - 12, WIRE_Y + r);
-      bctx.lineTo(cx + 12, WIRE_Y + r);
+      bctx.moveTo(cx - 11, WIRE_Y + r);
+      bctx.lineTo(cx + 11, WIRE_Y + r);
       bctx.stroke();
     }
 
     // Foco apagado
     bctx.save();
     traceBulbPath(bctx, cx, BULB_TOP, BULB_TIP);
-    var offFill = bctx.createRadialGradient(cx, BULB_TOP + 46, 3, cx, BULB_TOP + 52, 56);
+    var offFill = bctx.createRadialGradient(cx, BULB_TOP + 42, 3, cx, BULB_TOP + 48, 54);
     offFill.addColorStop(0, pal.mid + '38');
     offFill.addColorStop(0.45, pal.off);
     offFill.addColorStop(1, '#090b12');
@@ -2367,23 +2340,23 @@ function buildBulbCaches(){
     bctx.clip();
     bctx.strokeStyle = 'rgba(255,255,255,0.06)';
     bctx.lineWidth = 1.1;
-    [-9, 0, 9].forEach(function(off){
+    [-8, 0, 8].forEach(function(off){
       bctx.beginPath();
       bctx.moveTo(cx + off * 0.7, BULB_TOP);
-      bctx.quadraticCurveTo(cx + off * 1.45, BULB_TOP + 52, cx + off * 0.15, BULB_TIP);
+      bctx.quadraticCurveTo(cx + off * 1.45, BULB_TOP + 48, cx + off * 0.15, BULB_TIP);
       bctx.stroke();
     });
     bctx.fillStyle = 'rgba(255,255,255,0.16)';
     bctx.beginPath();
-    bctx.ellipse(cx - 10, BULB_TOP + 34, 4.2, 16, -0.22, 0, Math.PI * 2);
+    bctx.ellipse(cx - 9, BULB_TOP + 30, 4, 15, -0.22, 0, Math.PI * 2);
     bctx.fill();
     bctx.restore();
 
     // Numero 1..8
-    bctx.fillStyle = 'rgba(148,163,184,0.52)';
+    bctx.fillStyle = 'rgba(148,163,184,0.58)';
     bctx.font = '600 11px system-ui, sans-serif';
     bctx.textAlign = 'center';
-    bctx.fillText(String(phys + 1), cx, BULB_TIP + 28);
+    bctx.fillText(String(phys + 1), cx, BULB_TIP + 34);
   }
 
   // 2. 4 Sprites de focos encendidos (Rojo, Verde, Azul, Amarillo)
@@ -2394,41 +2367,41 @@ function buildBulbCaches(){
     var sctx = sc.getContext('2d');
     var tip = SPR_TOP + (BULB_TIP - BULB_TOP);
 
-    // Halo ambiental suave
-    var halo = sctx.createRadialGradient(SPR_CX, SPR_TOP + 54, 6, SPR_CX, SPR_TOP + 54, 84);
-    halo.addColorStop(0, pal.halo.replace(/0\.9[02]\)/, '0.54)'));
+    // Halo ambiental
+    var halo = sctx.createRadialGradient(SPR_CX, SPR_TOP + 48, 6, SPR_CX, SPR_TOP + 48, 78);
+    halo.addColorStop(0, pal.halo.replace(/0\.9[02]\)/, '0.56)'));
     halo.addColorStop(0.42, pal.halo.replace(/0\.9[02]\)/, '0.20)'));
     halo.addColorStop(1, 'rgba(0,0,0,0)');
     sctx.fillStyle = halo;
     sctx.beginPath();
-    sctx.arc(SPR_CX, SPR_TOP + 54, 84, 0, Math.PI * 2);
+    sctx.arc(SPR_CX, SPR_TOP + 48, 78, 0, Math.PI * 2);
     sctx.fill();
 
     // Cuerpo luminoso
     sctx.save();
     traceBulbPath(sctx, SPR_CX, SPR_TOP, tip);
-    var litFill = sctx.createRadialGradient(SPR_CX, SPR_TOP + 46, 3, SPR_CX, SPR_TOP + 52, 58);
+    var litFill = sctx.createRadialGradient(SPR_CX, SPR_TOP + 42, 3, SPR_CX, SPR_TOP + 48, 54);
     litFill.addColorStop(0, pal.core);
     litFill.addColorStop(0.32, pal.mid);
     litFill.addColorStop(1, pal.off);
     sctx.fillStyle = litFill;
     sctx.fill();
-    sctx.strokeStyle = 'rgba(255,255,255,0.48)';
+    sctx.strokeStyle = 'rgba(255,255,255,0.50)';
     sctx.lineWidth = 1.25;
     sctx.stroke();
 
     sctx.clip();
     sctx.strokeStyle = 'rgba(255,255,255,0.20)';
     sctx.lineWidth = 1.1;
-    [-9, 0, 9].forEach(function(off){
+    [-8, 0, 8].forEach(function(off){
       sctx.beginPath();
       sctx.moveTo(SPR_CX + off * 0.7, SPR_TOP);
-      sctx.quadraticCurveTo(SPR_CX + off * 1.45, SPR_TOP + 52, SPR_CX + off * 0.15, tip);
+      sctx.quadraticCurveTo(SPR_CX + off * 1.45, SPR_TOP + 48, SPR_CX + off * 0.15, tip);
       sctx.stroke();
     });
-    sctx.fillStyle = 'rgba(255,255,255,0.36)';
+    sctx.fillStyle = 'rgba(255,255,255,0.38)';
     sctx.beginPath();
-    sctx.ellipse(SPR_CX - 10, SPR_TOP + 34, 4.2, 16, -0.22, 0, Math.PI * 2);
+    sctx.ellipse(SPR_CX - 9, SPR_TOP + 30, 4, 15, -0.22, 0, Math.PI * 2);
     sctx.fill();
     sctx.restore();
 
@@ -2446,16 +2419,6 @@ function buildBulbCaches(){
       }
     }, { threshold: 0.05 });
     io.observe(cv);
-  }
-  if(_isCoarsePtr){
-    window.addEventListener('scroll', function(){
-      _isScrolling = true;
-      if(_scrollTimer) clearTimeout(_scrollTimer);
-      _scrollTimer = setTimeout(function(){
-        _isScrolling = false;
-        if(_canvasVisible) _canvasNeedsRedraw = true;
-      }, 120);
-    }, { passive: true });
   }
 })();
 
@@ -2573,16 +2536,11 @@ function stepPattern(pat){
       simStep++;
       break;
   }
-  syncMiniBulbs();
   _canvasNeedsRedraw = true;
 }
 
 function drawC7StringCanvas(ts){
   if(!_bgCanvas) buildBulbCaches();
-
-  if(!simLastAnimTs) simLastAnimTs = ts;
-  var dt = Math.min(60, Math.max(1, ts - simLastAnimTs));
-  simLastAnimTs = ts;
 
   var activePat = state.aleatorio ? state.simPatron : state.patron;
   var activeSpd = state.aleatorio ? state.simVelocidad : state.velocidad;
@@ -2598,24 +2556,7 @@ function drawC7StringCanvas(ts){
     stepPattern(activePat);
   }
 
-  if(!_canvasVisible || (_isCoarsePtr && _isScrolling)) return;
-
-  var stillAnimating = false;
-  for(var phys = 0; phys < 8; phys++){
-    var logIdx = state.invertir ? (7 - phys) : phys;
-    var target = simLogical[logIdx] ? 1 : 0;
-    var diff = target - simGlow[phys];
-    if(Math.abs(diff) > 0.004){
-      var rate = target ? (dt / 40) : (dt / 85);
-      simGlow[phys] += diff * Math.min(1, rate);
-      stillAnimating = true;
-    } else if(simGlow[phys] !== target){
-      simGlow[phys] = target;
-      _canvasNeedsRedraw = true;
-    }
-  }
-
-  if(!_canvasNeedsRedraw && !stillAnimating) return;
+  if(!_canvasVisible || !_canvasNeedsRedraw) return;
 
   var canvas = $('bulbs_canvas');
   if(!canvas) return;
@@ -2623,14 +2564,12 @@ function drawC7StringCanvas(ts){
   ctx.drawImage(_bgCanvas, 0, 0);
 
   for(var p = 0; p < 8; p++){
-    var g = simGlow[p];
-    if(g > 0.008){
-      ctx.globalAlpha = g;
+    var logIdx = state.invertir ? (7 - p) : p;
+    if(simLogical[logIdx]){
       ctx.drawImage(_litSprites[p % 4], PAD_X + p * SPACING - SPR_CX, BULB_TOP - SPR_TOP);
     }
   }
-  ctx.globalAlpha = 1;
-  _canvasNeedsRedraw = stillAnimating;
+  _canvasNeedsRedraw = false;
 }
 
 function animLoop(ts){

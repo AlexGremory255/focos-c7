@@ -1,12 +1,12 @@
 {
   "version": "1.0.1",
-  "build_time": "23/11/2026 22:18",
-  "notes": "Rediseño móvil fluido a 60/120 FPS y compatibilidad universal ESP8266 (v1.0.1)",
+  "build_time": "23/11/2026 22:30",
+  "notes": "Vista previa compacta fija en móvil, LED instantáneo y soporte ESP8266MOD (v1.0.1)",
   "changelog": [
-    "Rediseño completo para móvil: paneles separados sin traslapes y vista previa deslizable para navegar cómodamente.",
-    "Optimización real a 60/120 FPS: sprites pre-renderizados en canvas, sin filtro SVG costoso y tarjetas fluidas en pantallas táctiles.",
-    "Indicador en vivo de los 8 focos integrado en la barra superior.",
-    "Compatibilidad universal en Arduino IDE para ESP8266 regular (NodeMCU 1.0 / Generic ESP8266 Module) y diagnóstico de Flash OTA."
+    "Vista previa de los 8 focos siempre visible en móvil (< 1/3 de la pantalla) mientras el panel de velocidad se desliza libremente.",
+    "Encendido y apagado LED instantáneo (sin desvanecimiento suave) fiel a la serie Holiday Time.",
+    "Optimización real a 60/120 FPS por sprites pre-renderizados y cero traslapes entre pestañas.",
+    "Compatibilidad universal en Arduino IDE para ESP8266MOD (NodeMCU 1.0 / Generic ESP8266 Module) y diagnóstico de Flash OTA."
   ],
   "url": "https://alexgremory255.github.io/focos-c7/firmware.bin",
   "fallback_url": "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin",

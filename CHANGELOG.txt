@@ -1,4 +1,4 @@
-- Rediseno completo para movil: paneles de pestanas separados sin empalmes y vista previa deslizable para navegar comodamente.
-- Optimizacion real a 60/120 FPS: renderizado por sprites pre-renderizados en canvas, eliminacion de filtro SVG pesado y tarjetas ligeras en pantallas tactiles.
-- Indicador de 8 mini focos en tiempo real integrado en la barra superior al hacer scroll.
-- Compatibilidad universal en Arduino IDE con NodeMCU 1.0 y Generic ESP8266 Module (mapeo GPIO D0-D7 + diagnostico de Flash OTA en /config).
+- Vista previa de los 8 focos fija en movil (< 1/3 de pantalla) mientras los controles de velocidad se deslizan al navegar.
+- Encendido y apagado LED instantaneo (sin desvanecimiento suave) fiel a la serie fisica Holiday Time.
+- Optimizacion real a 60/120 FPS por sprites pre-renderizados y cero traslapes entre pestanas.
+- Compatibilidad universal en Arduino IDE para modulo ESP8266MOD (NodeMCU 1.0 y Generic ESP8266 Module) + diagnostico Flash OTA.

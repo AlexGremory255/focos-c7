@@ -9,8 +9,9 @@
 
 // ============================================================================
 //  Focos C7 Studio - Controlador Wi-Fi 8 Canales para ESP8266 (Arduino IDE)
-//  Placa recomendada: "NodeMCU 1.0 (ESP-12E Module)"
-//  Tambien compatible con "Generic ESP8266 Module" (Flash 4MB FS:2MB OTA:~1019KB)
+//  Compatible con modulo ESP8266MOD (AI-Thinker ESP-12E / ESP-12F, 4 MB Flash)
+//  En Arduino IDE funciona con: "NodeMCU 1.0 (ESP-12E Module)" o
+//  "Generic ESP8266 Module" (Flash Size: 4MB FS:2MB OTA:~1019KB)
 // ============================================================================
 
 #define FIRMWARE_VERSION "1.0.1"

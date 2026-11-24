@@ -62,7 +62,7 @@ Controlador Wi-Fi de **8 canales** para serie de luces **Holiday Time (8 Focos L
 
 ## Hardware y conexiones (`D0–D7`)
 
-Pensado para **NodeMCU v2 / v3** o **Wemos D1 Mini (ESP8266, 4 MB Flash)** conectado a un módulo de **8 relevadores de 5V activos en bajo** (o relevadores de estado sólido SSR):
+Pensado para **ESP8266MOD (AI-Thinker ESP-12E / ESP-12F, 4 MB Flash)** —o placas basadas en él como NodeMCU / Wemos D1 Mini— conectado a un módulo de **8 relevadores de 5V activos en bajo** (o relevadores de estado sólido SSR):
 
 | Canal lógico | Pin ESP8266 | GPIO | Color físico (Holiday Time C7) |
 | :---: | :---: | :---: | :--- |
