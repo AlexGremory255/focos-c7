@@ -4,7 +4,7 @@
 
 Controlador Wi-Fi de **8 canales** para serie de luces **Holiday Time (8 Focos LED Jumbo C7)** con **ESP8266**. Incluye estudio web **Liquid Glass** con simulador en vivo, **14 secuencias de iluminación**, cambio de red Wi-Fi desde el navegador, receptor **xLights (DDP)** y actualizaciones **Cloud OTA** directo desde GitHub.
 
-![Versión](https://img.shields.io/badge/versi%C3%B3n-v1.0.1-0ea5e9?style=flat-square)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-v1.0.2-0ea5e9?style=flat-square)
 ![Plataforma](https://img.shields.io/badge/plataforma-ESP8266-334155?style=flat-square)
 ![Serie](https://img.shields.io/badge/serie-8_Focos_C7_Jumbo-ef4444?style=flat-square)
 ![Protocolo](https://img.shields.io/badge/xLights-DDP_UDP_4048-16a34a?style=flat-square)
@@ -86,8 +86,8 @@ No necesitas instalar librerías externas: solo el soporte oficial de **ESP8266*
 ### 1. Primera carga por USB
 1. Abre [`focos_c7/focos_c7.ino`](focos_c7/focos_c7.ino) (o copia el contenido de [`luces.txt`](luces.txt)) en **Arduino IDE**.
 2. Selecciona la placa **NodeMCU 1.0 (ESP-12E Module)** (o **Generic ESP8266 Module** si usas la placa ESP8266 regular) con **Flash Size: `4MB (FS:2MB OTA:~1019KB)`** *(o `2MB (FS:256KB OTA:~892KB)` si tu chip trae 2 MB)*. El código incluye el mapeo `D0–D7` integrado para compilar en cualquiera de las dos opciones.
-3. Opcionalmente deja `TU_WIFI` tal cual y configúralo después conectándote a la red **`FocosC7`** (clave `focos1234`, entra a `http://192.168.4.1`).
-4. Compila y sube por cable USB.
+3. Opcionalmente deja `TU_WIFI` tal cual y configúralo después conectándote desde tu celular a la red **`FocosC7`** (clave `focos1234`, portal cautivo automático en `http://192.168.4.1`) usando el botón **Buscar redes Wi-Fi cercanas**.
+4. Al reiniciar con tu red guardada: **2 destellos verdes** indican que conectó al Wi-Fi (aparecerá solo en GitHub Pages vía Cloud Radar); **2 destellos rojos** indican que falló la clave o no encontró red 2.4 GHz y reabrió **`FocosC7`**.
 
 ### 2. Actualizar sin cables (Cloud OTA)
 1. Haz tus cambios en `focos_c7/focos_c7.ino` y sube `FIRMWARE_VERSION`.

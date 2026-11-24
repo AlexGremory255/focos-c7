@@ -1805,6 +1805,7 @@ dialog {
     <div class="dialog-row">
       <button type="button" class="btn-glass glass-btn-base glint-target" id="btn_start_scan" onclick="startUniversalScan()">Buscar en red local</button>
       <button type="button" class="btn-glass glass-btn-base glint-target btn-danger" id="btn_stop_scan" onclick="stopUniversalScan()" hidden>Detener</button>
+      <button type="button" class="btn-glass glass-btn-base glint-target btn-danger" id="btn_disconnect_dev" onclick="disconnectDevice()" hidden>Desconectar</button>
     </div>
 
     <div class="scan-progress" id="scan_prog_wrap" hidden>
@@ -1867,10 +1868,11 @@ dialog {
 <script>
 function $(id){ return document.getElementById(id); }
 
-var REPO_OWNER = 'AlexGremory255';
-var REPO_NAME  = 'focos-c7';
-var LS_IP_KEY  = 'focos_c7_ip';
-var SNAP_KEYS  = ['patron', 'velocidad', 'aleatorio', 'aleMin', 'aleMax', 'invertir'];
+var REPO_OWNER  = 'AlexGremory255';
+var REPO_NAME   = 'focos-c7';
+var RADAR_TOPIC = 'focosc7_alexgremory255_radar_v1';
+var LS_IP_KEY   = 'focos_c7_ip';
+var SNAP_KEYS   = ['patron', 'velocidad', 'aleatorio', 'aleMin', 'aleMax', 'invertir'];
 
 var BULB_PALETTE = [
   { name: 'Rojo',     core: '#fff1f2', mid: '#ef4444', halo: 'rgba(255, 55, 55, 0.92)',  off: '#3a1216' },
@@ -1907,6 +1909,7 @@ var IS_LOCAL_HOST = (
 
 var urlIpParam = '';
 try { urlIpParam = new URLSearchParams(location.search).get('ip') || ''; } catch(e){}
+var candidateBootIp = urlIpParam || (IS_LOCAL_HOST ? HOST_NAME : (localStorage.getItem(LS_IP_KEY) || ''));
 
 var state = {
   patron: 1,
@@ -1925,15 +1928,18 @@ var state = {
   flashKb: 0,
   otaKb: 0,
   otaOk: 1,
-  fwVer: '1.0.1',
+  fwVer: '1.0.2',
   latestCloudVer: '',
-  connectedIp: urlIpParam || (IS_LOCAL_HOST ? HOST_NAME : (localStorage.getItem(LS_IP_KEY) || '')),
+  connectedIp: '',
   effectFilter: 'all',
   activeTab: 'effects'
 };
 
 var savedSnapshot = null;
 var deviceCache = {};
+var _directFetchOk = {};
+var _radarCache = {};
+var _pendingBridgeVerify = null;
 var toastTimer = null;
 
 // ── Tema claro/oscuro ──
@@ -2009,8 +2015,10 @@ function openConfirmDialog(title, message, okLabel, isDanger, onConfirm){
   var okBtn = $('confirm_dialog_ok');
   okBtn.textContent = okLabel || 'Continuar';
   okBtn.className = isDanger ? 'btn-glass glass-btn-base btn-danger' : 'btn-solid';
-  dlg.onclose = function(){
-    if(dlg.returnValue === 'confirm' && typeof onConfirm === 'function') onConfirm();
+  okBtn.onclick = function(e){
+    e.preventDefault();
+    dlg.close('confirm');
+    if(typeof onConfirm === 'function') onConfirm();
   };
   dlg.showModal();
 }
@@ -2590,11 +2598,47 @@ function getBaseUrl(){
   return 'http://' + ip;
 }
 
+function isValidHostOrIp(raw){
+  var clean = normalizeIp(raw);
+  if(!clean || clean === '0.0.0.0') return false;
+  if(/^[a-zA-Z0-9-]+\.local$/i.test(clean)) return true;
+  return ipToUint32(clean) !== null;
+}
+
+function shouldUseHttpBridge(ip){
+  var clean = normalizeIp(ip);
+  return (location.protocol === 'https:' && !IS_LOCAL_HOST && !_directFetchOk[clean]);
+}
+
 function updateDevicePill(){
-  var pill = $('btn_device_pill'), lbl = $('device_pill_lbl');
+  var pill = $('btn_device_pill'), lbl = $('device_pill_lbl'), disc = $('btn_disconnect_dev');
   if(!pill || !lbl) return;
   var ip = normalizeIp(state.connectedIp);
   lbl.textContent = ip || 'Conectar';
+  pill.setAttribute('data-online', ip ? 'true' : 'false');
+  if(disc) disc.hidden = !ip;
+}
+
+function disconnectDevice(){
+  state.connectedIp = '';
+  state.ssid = '';
+  state.rssi = 0;
+  state.heap = 0;
+  state.flashKb = 0;
+  state.otaKb = 0;
+  state.ddp = 0;
+  state.ap = 0;
+  if($('manual_ip_in')) $('manual_ip_in').value = '';
+  try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
+  updateDevicePill();
+  renderAllControls();
+  var cards = document.querySelectorAll('#found_devices .clock-item');
+  for(var i = 0; i < cards.length; i++){
+    cards[i].setAttribute('data-current', 'false');
+    var btns = cards[i].querySelectorAll('button');
+    if(btns.length > 1) btns[btns.length - 1].textContent = 'Usar';
+  }
+  showToast('Controlador desconectado');
 }
 
 function updateFwMetaText(){
@@ -2616,7 +2660,6 @@ function applyDeviceConfigData(ip, d, silent){
     if($('manual_ip_in')) $('manual_ip_in').value = cleanIp;
     if(!IS_LOCAL_HOST) localStorage.setItem(LS_IP_KEY, cleanIp);
   }
-  $('btn_device_pill').setAttribute('data-online', 'true');
   updateDevicePill();
 
   if(d){
@@ -2650,10 +2693,21 @@ window.addEventListener('message', function(e){
   if(!e || !e.data) return;
   if(e.data.type === 'focos_c7_bridge'){
     var d = e.data.data || {};
-    var ip = d.ip || state.connectedIp || normalizeIp($('manual_ip_in').value);
+    if(d.device !== 'focos-c7') return;
+    var ip = normalizeIp(d.ip || (_pendingBridgeVerify && _pendingBridgeVerify.ip) || state.connectedIp || ($('manual_ip_in') && $('manual_ip_in').value));
+    if(_pendingBridgeVerify){
+      clearTimeout(_pendingBridgeVerify.timer);
+      try { if(_pendingBridgeVerify.win && !_pendingBridgeVerify.win.closed) _pendingBridgeVerify.win.close(); } catch(err){}
+      _pendingBridgeVerify = null;
+      if($('device_dialog') && $('device_dialog').open) $('device_dialog').close();
+      applyDeviceConfigData(ip, d, false);
+      return;
+    }
     applyDeviceConfigData(ip, d, true);
     showToast(e.data.saved ? ('Ajustes aplicados en ' + ip) : ('Sincronizado con ' + ip));
   } else if(e.data.type === 'focos_c7_wifi_scan'){
+    var btn = $('btn_scan_wifi');
+    if(btn){ btn.disabled = false; btn.textContent = 'Buscar redes cercanas'; }
     renderScannedWifiList(e.data.networks || []);
   }
 });
@@ -2663,6 +2717,10 @@ function sendViaHttpBridge(ip, paramsObj, msg, commitOnSubmit){
   if(!cleanIp) return;
   var win = null;
   try { win = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
+  if(!win){
+    showToast('Permite ventanas emergentes para controlar ' + cleanIp + ' desde HTTPS.', true);
+    return;
+  }
 
   var form = document.createElement('form');
   form.method = 'POST';
@@ -2684,55 +2742,100 @@ function sendViaHttpBridge(ip, paramsObj, msg, commitOnSubmit){
   document.body.appendChild(form);
   try {
     form.submit();
-    $('btn_device_pill').setAttribute('data-online', 'true');
     if(commitOnSubmit) commitSnapshot();
     showToast(msg || ('Enviado a ' + cleanIp));
   } catch(err){
     showToast('No se pudo conectar al ESP8266.', true);
   }
   setTimeout(function(){ try { document.body.removeChild(form); } catch(e){} }, 350);
-  setTimeout(function(){ try { if(win && !win.closed) win.close(); } catch(e){} }, 900);
+  setTimeout(function(){ try { if(win && !win.closed) win.close(); } catch(e){} }, 1200);
 }
 
 function connectManualIpFromDialog(){
   var clean = normalizeIp($('manual_ip_in').value);
-  if(!clean){ showToast('Ingresa la IP del controlador.', true); return; }
-  connectToDevice(clean, true);
-  $('device_dialog').close();
+  if(!isValidHostOrIp(clean)){
+    showToast('Ingresa una IP válida (ej. 192.168.1.50).', true);
+    return;
+  }
+  var preWin = null;
+  if(shouldUseHttpBridge(clean)){
+    try { preWin = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
+  }
+  connectToDevice(clean, true, preWin);
 }
 
-function connectToDevice(customIp, fromUserGesture){
-  var ip = normalizeIp(customIp || state.connectedIp || ($('manual_ip_in') && $('manual_ip_in').value));
-  if(!ip){ $('device_dialog').showModal(); return; }
-  state.connectedIp = ip;
-  if($('manual_ip_in')) $('manual_ip_in').value = ip;
-  if(!IS_LOCAL_HOST) localStorage.setItem(LS_IP_KEY, ip);
-  updateDevicePill();
+function connectToDevice(customIp, fromUserGesture, preOpenedWin){
+  var clean = normalizeIp(customIp);
+  if(!isValidHostOrIp(clean)){
+    if(preOpenedWin) try { preOpenedWin.close(); } catch(e){}
+    if(fromUserGesture) showToast('Ingresa una IP o host válido.', true);
+    return;
+  }
 
-  var url = (IS_LOCAL_HOST && ip === HOST_NAME) ? ('/config?t=' + Date.now()) : ('http://' + ip + '/config?t=' + Date.now());
-  fetch(url)
-    .then(function(r){ return r.json(); })
+  if(fromUserGesture) showToast('Verificando ' + clean + '...');
+
+  var url = (IS_LOCAL_HOST && clean === HOST_NAME) ? ('/config?t=' + Date.now()) : ('http://' + clean + '/config?t=' + Date.now());
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 2200);
+
+  fetch(url, { signal: ctrl.signal })
+    .then(function(r){
+      clearTimeout(tid);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(d){
+      if(preOpenedWin) try { preOpenedWin.close(); } catch(e){}
       if(d && d.device === 'focos-c7'){
-        applyDeviceConfigData(ip, d, fromUserGesture === false);
+        _directFetchOk[clean] = true;
+        if(fromUserGesture && $('device_dialog') && $('device_dialog').open) $('device_dialog').close();
+        applyDeviceConfigData(clean, d, !fromUserGesture);
       } else {
-        showToast('El dispositivo en ' + ip + ' no es Focos C7.', true);
+        if(!fromUserGesture && clean === candidateBootIp) try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
+        showToast('La IP ' + clean + ' respondió, pero no corresponde a unos Focos C7.', true);
       }
     })
     .catch(function(){
-      if(deviceCache[ip]){
-        applyDeviceConfigData(ip, deviceCache[ip], fromUserGesture === false);
+      clearTimeout(tid);
+      if(location.protocol !== 'https:'){
+        if(preOpenedWin) try { preOpenedWin.close(); } catch(e){}
+        if(!fromUserGesture && clean === candidateBootIp) try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
+        if(fromUserGesture) showToast('No responde ningún Focos C7 en ' + clean + '.', true);
         return;
       }
-      $('btn_device_pill').setAttribute('data-online', 'true');
-      renderFoundDeviceCard(ip, { ip: ip, fw_ver: state.fwVer, ssid: state.ssid }, true);
-      if(fromUserGesture !== false && location.protocol === 'https:'){
-        try {
-          var w = window.open('http://' + ip + '/bridge?t=' + Date.now(), 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999');
-          setTimeout(function(){ try { if(w && !w.closed) w.close(); } catch(e){} }, 800);
-        } catch(e){}
+
+      if(fromUserGesture){
+        if(preOpenedWin && !preOpenedWin.closed){
+          if(_pendingBridgeVerify){
+            clearTimeout(_pendingBridgeVerify.timer);
+            try { if(_pendingBridgeVerify.win && !_pendingBridgeVerify.win.closed) _pendingBridgeVerify.win.close(); } catch(e){}
+          }
+          var timer = setTimeout(function(){
+            if(_pendingBridgeVerify && _pendingBridgeVerify.ip === clean){
+              try { if(_pendingBridgeVerify.win && !_pendingBridgeVerify.win.closed) _pendingBridgeVerify.win.close(); } catch(e){}
+              _pendingBridgeVerify = null;
+              showToast('No se encontró Focos C7 en ' + clean + '. Verifica la IP y tu Wi-Fi.', true);
+            }
+          }, 3500);
+          _pendingBridgeVerify = { ip: clean, win: preOpenedWin, timer: timer };
+          try {
+            preOpenedWin.location = 'http://' + clean + '/bridge?t=' + Date.now();
+          } catch(err){
+            clearTimeout(timer);
+            _pendingBridgeVerify = null;
+            try { preOpenedWin.close(); } catch(e2){}
+            showToast('No se pudo abrir verificación en ' + clean + '.', true);
+          }
+        } else {
+          showToast('Permite ventanas emergentes para verificar ' + clean + ' desde HTTPS.', true);
+        }
+      } else {
+        if(_radarCache[clean]){
+          applyDeviceConfigData(clean, _radarCache[clean], false);
+        } else if(clean === candidateBootIp){
+          try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
+        }
       }
-      if(fromUserGesture) showToast('Controlador seleccionado: ' + ip);
     });
 }
 
@@ -2740,12 +2843,9 @@ function pushConfigToDevice(){
   var ip = normalizeIp(state.connectedIp);
   if(!ip){
     $('device_dialog').showModal();
-    showToast('Conecta primero la IP del ESP8266.', true);
+    showToast('Conecta primero un controlador Focos C7.', true);
     return;
   }
-  var base = getBaseUrl();
-  var btn = $('btn_apply');
-  btn.disabled = true;
 
   var params = {
     patron: state.patron,
@@ -2755,6 +2855,15 @@ function pushConfigToDevice(){
     ale_max: state.aleMax,
     invertir: state.invertir
   };
+
+  if(shouldUseHttpBridge(ip)){
+    sendViaHttpBridge(ip, params, 'Ajustes enviados a ' + ip, true);
+    return;
+  }
+
+  var base = getBaseUrl();
+  var btn = $('btn_apply');
+  btn.disabled = true;
   var body = Object.keys(params).map(function(k){ return k + '=' + encodeURIComponent(params[k]); }).join('&');
 
   fetch(base + '/config', {
@@ -2765,12 +2874,14 @@ function pushConfigToDevice(){
   .then(function(r){ return r.json(); })
   .then(function(d){
     btn.disabled = false;
-    applyDeviceConfigData(ip, d, true);
-    showToast('Ajustes aplicados en ' + ip);
+    if(d && d.device === 'focos-c7'){
+      applyDeviceConfigData(ip, d, true);
+      showToast('Ajustes aplicados en ' + ip);
+    }
   })
   .catch(function(){
     btn.disabled = false;
-    sendViaHttpBridge(ip, params, 'Ajustes enviados a ' + ip, true);
+    showToast('Error de comunicación con ' + ip + '.', true);
   });
 }
 
@@ -2814,8 +2925,23 @@ function scanWifiNetworks(){
   var ip = normalizeIp(state.connectedIp);
   if(!ip){ $('device_dialog').showModal(); showToast('Conecta primero tu ESP8266.', true); return; }
   var btn = $('btn_scan_wifi');
-  btn.disabled = true; btn.textContent = 'Buscando redes...';
 
+  if(shouldUseHttpBridge(ip)){
+    try {
+      var w = window.open('http://' + ip + '/scan_wifi?bridge=1&t=' + Date.now(), 'focos_c7_wifi', 'width=340,height=180,left=9999,top=9999');
+      if(!w){ showToast('Permite ventanas emergentes para escanear Wi-Fi desde HTTPS.', true); return; }
+      btn.disabled = true; btn.textContent = 'Buscando redes...';
+      setTimeout(function(){
+        if(btn.disabled){ btn.disabled = false; btn.textContent = 'Buscar redes cercanas'; }
+      }, 6500);
+      showToast('Escaneando redes vía puente local...');
+    } catch(e){
+      showToast('No se pudo escanear redes desde HTTPS.', true);
+    }
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Buscando redes...';
   var base = getBaseUrl();
   fetch(base + '/scan_wifi?t=' + Date.now())
     .then(function(r){ return r.json(); })
@@ -2826,14 +2952,7 @@ function scanWifiNetworks(){
     })
     .catch(function(){
       btn.disabled = false; btn.textContent = 'Buscar redes cercanas';
-      if(location.protocol === 'https:'){
-        try {
-          window.open('http://' + ip + '/scan_wifi?bridge=1&t=' + Date.now(), 'focos_c7_wifi', 'width=340,height=180,left=9999,top=9999');
-          showToast('Escaneando redes vía puente local...');
-        } catch(e){ showToast('No se pudo escanear redes desde HTTPS.', true); }
-      } else {
-        showToast('No se pudo comunicar con ' + ip, true);
-      }
+      showToast('No se pudo comunicar con ' + ip, true);
     });
 }
 
@@ -2846,12 +2965,16 @@ function saveWifiCredentials(){
 
   openConfirmDialog(
     'Cambiar red Wi-Fi',
-    'El controlador ' + ip + ' guardará "' + ssid + '" y se reiniciará para conectarse. Si falla, volverá a abrir FocosC7.',
+    'El controlador ' + ip + ' guardará "' + ssid + '" y se reiniciará para conectarse. Verás 2 destellos verdes si conecta, o 2 rojos si falla y vuelve a abrir FocosC7.',
     'Guardar y conectar',
     false,
     function(){
-      var base = getBaseUrl();
       var params = { save_wifi: 1, wifi_ssid: ssid, wifi_pass: pass };
+      if(shouldUseHttpBridge(ip)){
+        sendViaHttpBridge(ip, params, 'Wi-Fi enviado a ' + ip, false);
+        return;
+      }
+      var base = getBaseUrl();
       var body = 'save_wifi=1&wifi_ssid=' + encodeURIComponent(ssid) + '&wifi_pass=' + encodeURIComponent(pass);
       fetch(base + '/config', {
         method: 'POST',
@@ -2859,7 +2982,7 @@ function saveWifiCredentials(){
         body: body
       })
       .then(function(){ showToast('Wi-Fi guardado. Reiniciando ' + ip + '...'); })
-      .catch(function(){ sendViaHttpBridge(ip, params, 'Wi-Fi enviado a ' + ip, false); });
+      .catch(function(){ showToast('No se pudo enviar Wi-Fi a ' + ip, true); });
     }
   );
 }
@@ -2873,6 +2996,10 @@ function requestResetWifi(){
     'Olvidar y reiniciar',
     true,
     function(){
+      if(shouldUseHttpBridge(ip)){
+        sendViaHttpBridge(ip, { reset_wifi: 1 }, 'Wi-Fi restablecido en ' + ip, false);
+        return;
+      }
       var base = getBaseUrl();
       fetch(base + '/config', {
         method: 'POST',
@@ -2880,7 +3007,7 @@ function requestResetWifi(){
         body: 'reset_wifi=1'
       })
       .then(function(){ showToast('Red olvidada. Iniciando AP FocosC7...'); })
-      .catch(function(){ sendViaHttpBridge(ip, { reset_wifi: 1 }, 'Wi-Fi restablecido en ' + ip, false); });
+      .catch(function(){ showToast('No se pudo comunicar con ' + ip, true); });
     }
   );
 }
@@ -2895,6 +3022,10 @@ function requestDeviceOta(){
     'Iniciar OTA',
     false,
     function(){
+      if(shouldUseHttpBridge(ip)){
+        sendViaHttpBridge(ip, { start_ota: 1 }, 'OTA iniciada en ' + ip, false);
+        return;
+      }
       var base = getBaseUrl();
       fetch(base + '/config', {
         method: 'POST',
@@ -2902,7 +3033,7 @@ function requestDeviceOta(){
         body: 'start_ota=1'
       })
       .then(function(){ showToast('OTA iniciada en ' + ip + '. Observa los 8 focos.'); })
-      .catch(function(){ sendViaHttpBridge(ip, { start_ota: 1 }, 'OTA iniciada en ' + ip, false); });
+      .catch(function(){ showToast('No se pudo iniciar OTA en ' + ip, true); });
     }
   );
 }
@@ -2916,6 +3047,10 @@ function requestDeviceReboot(){
     'Reiniciar',
     false,
     function(){
+      if(shouldUseHttpBridge(ip)){
+        sendViaHttpBridge(ip, { reboot: 1 }, 'Reiniciando ' + ip + '...', false);
+        return;
+      }
       var base = getBaseUrl();
       fetch(base + '/config', {
         method: 'POST',
@@ -2923,7 +3058,7 @@ function requestDeviceReboot(){
         body: 'reboot=1'
       })
       .then(function(){ showToast('Reiniciando ' + ip + '...'); })
-      .catch(function(){ sendViaHttpBridge(ip, { reboot: 1 }, 'Reiniciando ' + ip + '...', false); });
+      .catch(function(){ showToast('No se pudo reiniciar ' + ip, true); });
     }
   );
 }
@@ -2940,7 +3075,7 @@ function escapeHtml(s){
   });
 }
 
-// ── Descubrimiento LAN y Version Cloud ──
+// ── Descubrimiento LAN, Cloud Radar y Version Cloud ──
 var scanRunning = false;
 var scanAbortFlag = false;
 var discoveredIps = {};
@@ -2964,16 +3099,16 @@ function uint32ToIp(n){
 
 function renderFoundDeviceCard(ip, data, skipAutoConnect){
   var realIp = normalizeIp((data && data.ip && data.ip !== '0.0.0.0') ? data.ip : ip);
-  if(!realIp) return;
-  if(data) deviceCache[realIp] = data;
+  if(!realIp || !data || data.device !== 'focos-c7') return;
+  deviceCache[realIp] = data;
 
   var box = $('found_devices');
   if(!box) return;
   var cid = 'dev_card_' + realIp.replace(/[^a-zA-Z0-9]/g, '_');
   var existing = $(cid);
   var isCur = (normalizeIp(state.connectedIp) === realIp);
-  var ver = 'v' + ((data && data.fw_ver) || state.fwVer);
-  var ssidLbl = (data && data.ssid) ? data.ssid : 'FocosC7';
+  var ver = 'v' + (data.fw_ver || state.fwVer);
+  var ssidLbl = data.ssid ? data.ssid : 'FocosC7';
 
   var localLink = IS_LOCAL_HOST ? '' :
     '<a href="http://' + realIp + '/" target="_blank" rel="noopener" class="btn-glass glass-btn-base glint-target">Local</a>';
@@ -3008,8 +3143,55 @@ function renderFoundDeviceCard(ip, data, skipAutoConnect){
 }
 
 function pickDeviceFromDialog(ip){
-  connectToDevice(ip, true);
-  $('device_dialog').close();
+  var clean = normalizeIp(ip);
+  var preWin = null;
+  if(shouldUseHttpBridge(clean)){
+    try { preWin = window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999'); } catch(e){}
+  }
+  connectToDevice(clean, true, preWin);
+}
+
+async function fetchCloudRadarDevices(){
+  if(IS_LOCAL_HOST) return [];
+  var latestByKey = {};
+  try {
+    var ctrl = new AbortController();
+    var tid = setTimeout(function(){ ctrl.abort(); }, 2600);
+    var nr = await fetch('https://ntfy.sh/' + RADAR_TOPIC + '/json?poll=1&since=72h', { signal: ctrl.signal });
+    clearTimeout(tid);
+    if(nr && nr.ok){
+      var txt = await nr.text();
+      var lines = txt.split('\n');
+      for(var li = 0; li < lines.length; li++){
+        var line = lines[li].trim();
+        if(!line) continue;
+        try {
+          var ev = JSON.parse(line);
+          if(ev && ev.event === 'message' && ev.message){
+            var payload = JSON.parse(ev.message);
+            if(payload && payload.device === 'focos-c7' && payload.ip && payload.ip !== '0.0.0.0' && payload.ip !== '192.168.4.1'){
+              var k = payload.mac || payload.ip;
+              var t = Number(ev.time || 0);
+              if(!latestByKey[k] || t >= latestByKey[k].time){
+                latestByKey[k] = { time: t, data: payload };
+              }
+            }
+          }
+        } catch(pe){}
+      }
+    }
+  } catch(e){}
+
+  var list = Object.keys(latestByKey).map(function(k){ return latestByKey[k]; });
+  list.sort(function(a, b){ return b.time - a.time; });
+  var result = [];
+  list.forEach(function(item){
+    var d = item.data;
+    _radarCache[d.ip] = d;
+    renderFoundDeviceCard(d.ip, d, true);
+    result.push(d);
+  });
+  return result;
 }
 
 async function fetchCloudVersion(notify){
@@ -3034,7 +3216,10 @@ async function fetchCloudVersion(notify){
       }
       if(!IS_LOCAL_HOST && vd && Array.isArray(vd.devices)){
         vd.devices.forEach(function(dev){
-          if(dev && dev.ip) renderFoundDeviceCard(dev.ip, dev, false);
+          if(dev && dev.device === 'focos-c7' && dev.ip){
+            _radarCache[dev.ip] = dev;
+            renderFoundDeviceCard(dev.ip, dev, true);
+          }
         });
       }
       if(notify) showToast('Versión en GitHub: v' + (vd.version || state.latestCloudVer));
@@ -3057,6 +3242,7 @@ async function probeDeviceHost(hostOrIp, timeoutMs){
     if(r && r.ok){
       var d = await r.json();
       if(d && d.device === 'focos-c7'){
+        _directFetchOk[clean] = true;
         renderFoundDeviceCard(clean, d, true);
         return d;
       }
@@ -3118,12 +3304,13 @@ async function startUniversalScan(){
   $('btn_start_scan').disabled = true;
   $('btn_start_scan').textContent = 'Buscando...';
   $('btn_stop_scan').hidden = false;
-  $('scan_prog_lbl').textContent = 'Probando focosc7.local y AP...';
+  $('scan_prog_lbl').textContent = 'Consultando Cloud Radar y red local...';
   $('scan_prog_pct').textContent = '15%';
   $('scan_prog_fill').style.inlineSize = '15%';
 
   var rtcPrefixPromise = detectWebRtcSubnetPrefix();
-  await Promise.all([
+  var res = await Promise.all([
+    fetchCloudRadarDevices(),
     fetchCloudVersion(false),
     probeDeviceHost('focosc7.local', 900),
     probeDeviceHost('192.168.4.1', 800),
@@ -3176,7 +3363,12 @@ async function startCustomRangeScan(){
     }
   } else {
     var single = ipToUint32(clean);
-    if(single !== null){ connectToDevice(uint32ToIp(single), true); return; }
+    if(single !== null){
+      var singleIp = uint32ToIp(single);
+      var preW = shouldUseHttpBridge(singleIp) ? window.open('about:blank', 'focos_c7_bridge', 'width=340,height=180,left=9999,top=9999') : null;
+      connectToDevice(singleIp, true, preW);
+      return;
+    }
   }
 
   if(startInt === null || endInt === null || endInt < startInt){
@@ -3255,7 +3447,7 @@ async function startCustomRangeScan(){
 })();
 
 // ── Inicio ──
-if(state.connectedIp && $('manual_ip_in')) $('manual_ip_in').value = state.connectedIp;
+if(candidateBootIp && $('manual_ip_in')) $('manual_ip_in').value = candidateBootIp;
 updateDevicePill();
 renderAllControls();
 commitSnapshot();
@@ -3263,13 +3455,22 @@ buildBulbCaches();
 requestAnimationFrame(animLoop);
 
 fetchCloudVersion(false);
-if(state.connectedIp){
-  connectToDevice(state.connectedIp, false);
-} else {
-  probeDeviceHost('focosc7.local', 850).then(function(d){
-    if(d && !state.connectedIp) applyDeviceConfigData('focosc7.local', d, false);
-  });
-}
+Promise.all([
+  fetchCloudRadarDevices(),
+  candidateBootIp ? probeDeviceHost(candidateBootIp, 1500) : probeDeviceHost('focosc7.local', 900)
+]).then(function(results){
+  var radarList = results[0] || [];
+  var directBoot = results[1];
+  if(directBoot && candidateBootIp){
+    applyDeviceConfigData(candidateBootIp, directBoot, false);
+  } else if(candidateBootIp && _radarCache[candidateBootIp]){
+    applyDeviceConfigData(candidateBootIp, _radarCache[candidateBootIp], false);
+  } else if(!state.connectedIp && radarList.length > 0){
+    connectToDevice(radarList[0].ip, false);
+  } else if(candidateBootIp && !IS_LOCAL_HOST){
+    try { localStorage.removeItem(LS_IP_KEY); } catch(e){}
+  }
+});
 </script>
 </body>
 </html>

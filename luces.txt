@@ -5,6 +5,7 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecureBearSSL.h>
 #include <WiFiUdp.h>
+#include <DNSServer.h>
 #include <EEPROM.h>
 
 // ============================================================================
@@ -14,7 +15,7 @@
 //  "Generic ESP8266 Module" (Flash Size: 4MB FS:2MB OTA:~1019KB)
 // ============================================================================
 
-#define FIRMWARE_VERSION "1.0.1"
+#define FIRMWARE_VERSION "1.0.2"
 
 // Mapeo GPIO por si se compila con "Generic ESP8266 Module" en Arduino IDE
 #ifndef D0
@@ -37,8 +38,9 @@ const char* AP_SSID   = "FocosC7";
 const char* AP_PASS   = "focos1234";      // minimo 8 caracteres
 const char* MDNS_NAME = "focosc7";        // http://focosc7.local
 
-// Estudio Web (GitHub Pages) y endpoints Cloud OTA
+// Estudio Web (GitHub Pages), Cloud Radar y endpoints Cloud OTA
 const char* STUDIO_URL       = "https://alexgremory255.github.io/focos-c7/";
+const char* RADAR_URL        = "http://ntfy.sh/focosc7_alexgremory255_radar_v1";
 const char* OTA_FIRMWARE_URL = "https://alexgremory255.github.io/focos-c7/firmware.bin";
 const char* OTA_FALLBACK_URL = "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin";
 
@@ -57,6 +59,7 @@ const uint8_t WIFI_MAGIC_RESET = 0x5E;
 
 ESP8266WebServer server(80);
 WiFiUDP udp;
+DNSServer dnsServer;
 
 bool estadoLogico[8] = {false};
 bool estadoFisico[8] = {false};
@@ -73,10 +76,13 @@ uint8_t wifiEstadoCfg = 0;                // 0=default, WIFI_MAGIC_SET, WIFI_MAG
 unsigned long ultimo = 0, ultimoDDP = 0, proxCambio = 0;
 uint32_t paso = 0;
 bool apActivo = false;
+bool dnsCaptivoActivo = false;
 bool mdnsActivo = false;
 
 bool pendienteGuardar = false;
 unsigned long tCambio = 0;
+bool radarPendiente = false;
+unsigned long tRadar = 0;
 bool otaPendiente = false;
 bool reinicioPendiente = false;
 unsigned long tReinicio = 0;
@@ -367,43 +373,101 @@ void refrescarSiToca() {
   }
 }
 
-// ---------- Wi-Fi y mDNS ----------
+// ---------- Wi-Fi, mDNS, Portal Cautivo y Cloud Radar ----------
+void destellarPares(uint8_t a, uint8_t b, int veces, int msOn, int msOff) {
+  todos(false);
+  for (int v = 0; v < veces; v++) {
+    canal(a, true); canal(b, true); delay(msOn);
+    canal(a, false); canal(b, false); delay(msOff);
+  }
+}
+
+void programarRadar() {
+  radarPendiente = true;
+  tRadar = millis();
+}
+
 void iniciarMDNS() {
   if (mdnsActivo || WiFi.status() != WL_CONNECTED) return;
   if (MDNS.begin(MDNS_NAME)) {
     MDNS.addService("http", "tcp", 80);
+    MDNS.addServiceTxt("http", "tcp", "device", "focos-c7");
     mdnsActivo = true;
     Serial.printf("[mDNS] Activo: http://%s.local\n", MDNS_NAME);
   }
 }
 
-void iniciarAP(bool mantenerSTA) {
-  WiFi.mode(mantenerSTA ? WIFI_AP_STA : WIFI_AP);
+void iniciarAP() {
+  WiFi.setAutoReconnect(false);
+  WiFi.disconnect();
+  WiFi.mode(WIFI_AP_STA); // Mantiene radio STA lista para escanear redes sin saltar de canal
   WiFi.softAP(AP_SSID, AP_PASS);
+  dnsServer.start(53, "*", WiFi.softAPIP());
+  dnsCaptivoActivo = true;
   apActivo = true;
   Serial.printf("[Wi-Fi] AP respaldo '%s' IP: %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
 }
 
 void vigilarWiFi() {
   static unsigned long t = 0;
-  if (millis() - t < 15000) return;
+  static bool estabaConectado = false;
+  static unsigned long ultimoReintentoSTA = 0;
+  static bool reintentandoSTA = false;
+
+  if (millis() - t < 5000) return;
   t = millis();
 
   if (!tieneWifiValido()) {
-    if (!apActivo) iniciarAP(false);
+    estabaConectado = false;
+    mdnsActivo = false;
+    if (!apActivo) iniciarAP();
     return;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    iniciarMDNS();
+    reintentandoSTA = false;
     if (apActivo && WiFi.softAPgetStationNum() == 0) {
+      if (dnsCaptivoActivo) {
+        dnsServer.stop();
+        dnsCaptivoActivo = false;
+      }
       WiFi.softAPdisconnect(true);
       WiFi.mode(WIFI_STA);
       apActivo = false;
+      mdnsActivo = false;
       Serial.println("[Wi-Fi] Conectado a red local; AP de respaldo apagado.");
     }
-  } else if (!apActivo) {
-    iniciarAP(true);
+    iniciarMDNS();
+    if (!estabaConectado) {
+      estabaConectado = true;
+      programarRadar();
+    }
+  } else {
+    estabaConectado = false;
+    mdnsActivo = false;
+    if (!apActivo) {
+      iniciarAP();
+      ultimoReintentoSTA = millis();
+      reintentandoSTA = false;
+    } else if (WiFi.softAPgetStationNum() > 0) {
+      if (reintentandoSTA) {
+        reintentandoSTA = false;
+        WiFi.setAutoReconnect(false);
+        WiFi.disconnect();
+      }
+    } else {
+      if (!reintentandoSTA && (millis() - ultimoReintentoSTA > 60000)) {
+        reintentandoSTA = true;
+        ultimoReintentoSTA = millis();
+        WiFi.setAutoReconnect(true);
+        WiFi.begin(wifiSsid, wifiPass);
+        Serial.println("[Wi-Fi] Reintento no bloqueante en segundo plano...");
+      } else if (reintentandoSTA && (millis() - ultimoReintentoSTA > 15000)) {
+        reintentandoSTA = false;
+        WiFi.setAutoReconnect(false);
+        WiFi.disconnect();
+      }
+    }
   }
 }
 
@@ -491,11 +555,7 @@ void ejecutarCloudOTA() {
     ESP.restart();
   } else {
     Serial.println("[OTA] Fallo la actualizacion; restaurando operacion normal.");
-    todos(false);
-    for (int k = 0; k < 2; k++) {
-      canal(0, true); canal(7, true); delay(160);
-      todos(false); delay(140);
-    }
+    destellarPares(0, 4, 2, 160, 140);
     udp.begin(4048);
     iniciarMDNS();
     setPatron(patron);
@@ -523,6 +583,7 @@ String construirJsonConfig() {
   String json = "{";
   json += "\"device\":\"focos-c7\"";
   json += ",\"fw_ver\":\"" FIRMWARE_VERSION "\"";
+  json += ",\"mac\":\"" + WiFi.macAddress() + "\"";
   json += ",\"ip\":\"" + ipAct + "\"";
   json += ",\"ssid\":\"" + escaparJson(ssidAct) + "\"";
   json += ",\"rssi\":" + String(WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0);
@@ -541,6 +602,20 @@ String construirJsonConfig() {
   json += ",\"ota_ok\":" + String((ESP.checkFlashConfig(false) && ESP.getFreeSketchSpace() > 480000) ? 1 : 0);
   json += "}";
   return json;
+}
+
+void publicarRadar() {
+  if (WiFi.status() != WL_CONNECTED || ddpActivo()) return;
+  WiFiClient cli;
+  cli.setTimeout(1200);
+  HTTPClient http;
+  http.setTimeout(1200);
+  http.setReuse(false);
+  if (http.begin(cli, RADAR_URL)) {
+    http.addHeader("Content-Type", "application/json");
+    http.POST(construirJsonConfig());
+    http.end();
+  }
 }
 
 void enviarRespuestaBridge(bool saved) {
@@ -669,6 +744,7 @@ void manejarConfigPost() {
   }
 
   marcarGuardar();
+  programarRadar();
 
   if (isBridge) enviarRespuestaBridge(true);
   else {
@@ -689,7 +765,11 @@ void manejarBridge() {
 }
 
 void manejarScanWifi() {
-  int total = WiFi.scanNetworks();
+  if (WiFi.getMode() == WIFI_AP) {
+    WiFi.mode(WIFI_AP_STA);
+    delay(40);
+  }
+  int total = WiFi.scanNetworks(false, false);
   String lista = "[";
   bool primero = true;
 
@@ -732,7 +812,37 @@ void manejarScanWifi() {
   server.send(200, "application/json", lista);
 }
 
-// ---------- Pagina local ligera de respaldo ----------
+// ---------- Pagina local ligera con escaner Wi-Fi integrado ----------
+String escaparHtml(const String& s) {
+  String out;
+  out.reserve(s.length() + 8);
+  for (unsigned int i = 0; i < s.length(); i++) {
+    char c = s.charAt(i);
+    if      (c == '&')  out += F("&amp;");
+    else if (c == '<')  out += F("&lt;");
+    else if (c == '>')  out += F("&gt;");
+    else if (c == '"')  out += F("&quot;");
+    else if (c == '\'') out += F("&#39;");
+    else                out += c;
+  }
+  return out;
+}
+
+String bloqueConfigWifiHtml() {
+  String w;
+  w.reserve(900);
+  w += F("<div class='card'><div style='margin-bottom:6px'><b>Configurar Wi-Fi (2.4 GHz)</b></div>"
+         "<button type='button' class='btn' id='btn_scan' onclick='escanear()'>Buscar redes Wi-Fi cercanas</button>"
+         "<div id='redes' style='margin:6px 0'></div>"
+         "<form action='/wifi_local' method='POST'>"
+         "<input id='w_ssid' name='wifi_ssid' placeholder='Nombre de tu red Wi-Fi' maxlength='32' required>"
+         "<input id='w_pass' name='wifi_pass' type='password' placeholder='Contrasena (vacia si es abierta)' maxlength='64'>"
+         "<label style='display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8;margin:2px 0 8px'>"
+         "<input type='checkbox' style='width:auto;margin:0' onchange=\"document.getElementById('w_pass').type=this.checked?'text':'password'\"> Mostrar contrasena</label>"
+         "<button class='btn pri' type='submit'>Guardar Wi-Fi y reiniciar</button></form></div>");
+  return w;
+}
+
 void paginaInicioLocal() {
   static const char* const NOMBRES[14] = {
     "0. Apagar", "1. Persecucion", "2. Ping-pong", "3. Alternado",
@@ -741,9 +851,10 @@ void paginaInicioLocal() {
     "12. Choque dual", "13. Cascada espejo"
   };
 
-  String ipAct = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
+  bool conectado = (WiFi.status() == WL_CONNECTED);
+  String ipAct = conectado ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
   String h;
-  h.reserve(2600);
+  h.reserve(4096);
   h += F("<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'>"
          "<meta name='viewport' content='width=device-width,initial-scale=1'>"
          "<title>Focos C7 Local</title>"
@@ -758,17 +869,21 @@ void paginaInicioLocal() {
          "input{width:100%;padding:10px;margin:4px 0 8px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#fff;box-sizing:border-box}"
          "small{color:#94a3b8}"
          "</style></head><body>"
-         "<div class='card'><h2 style='margin:0 0 6px'>Focos C7 · Panel Local</h2><small>IP: ");
+         "<div class='card'><h2 style='margin:0 0 6px'>Focos C7 &middot; Panel Local</h2><small>IP: ");
   h += ipAct;
-  h += F(" · Firmware v" FIRMWARE_VERSION " · ");
-  h += (WiFi.status() == WL_CONNECTED) ? ("Wi-Fi: " + escaparJson(WiFi.SSID())) : String("Sin Wi-Fi");
+  h += F(" &middot; Firmware v" FIRMWARE_VERSION " &middot; ");
+  h += conectado ? ("Wi-Fi: " + escaparHtml(WiFi.SSID())) : String("Sin Wi-Fi (Modo AP)");
   if (apActivo) h += F(" | AP: FocosC7 (192.168.4.1)");
-  h += ddpActivo() ? F(" | DDP Activo") : F("");
+  if (ddpActivo()) h += F(" | DDP Activo");
   h += F("</small><a class='btn pri' style='margin-top:10px' href='");
   h += STUDIO_URL;
   h += F("?ip=");
   h += ipAct;
   h += F("' target='_blank' rel='noopener'>Abrir Estudio Web Completo (GitHub Pages)</a></div>");
+
+  if (!conectado) {
+    h += bloqueConfigWifiHtml();
+  }
 
   h += F("<div class='card'><div style='margin-bottom:6px'><b>Control rapido</b></div>"
          "<a class='btn ");
@@ -795,12 +910,30 @@ void paginaInicioLocal() {
   }
   h += F("</div></div>");
 
-  h += F("<div class='card'><div style='margin-bottom:6px'><b>Configurar Wi-Fi</b></div>"
-         "<form action='/wifi_local' method='POST'>"
-         "<input name='wifi_ssid' placeholder='Nombre de tu red Wi-Fi' required>"
-         "<input name='wifi_pass' type='password' placeholder='Contrasena (vacia si es abierta)'>"
-         "<button class='btn pri' type='submit'>Guardar Wi-Fi y reiniciar</button></form></div>"
-         "</body></html>");
+  if (conectado) {
+    h += bloqueConfigWifiHtml();
+  }
+
+  h += F("<script>"
+         "function escanear(){"
+         "var b=document.getElementById('btn_scan'),box=document.getElementById('redes');"
+         "b.disabled=true;b.textContent='Buscando redes...';"
+         "fetch('/scan_wifi?t='+Date.now()).then(function(r){return r.json();}).then(function(arr){"
+         "b.disabled=false;b.textContent='Buscar redes Wi-Fi cercanas';box.innerHTML='';"
+         "if(!arr||!arr.length){box.innerHTML='<small>No se encontraron redes 2.4 GHz.</small>';return;}"
+         "arr.sort(function(a,c){return c.rssi-a.rssi;});"
+         "arr.forEach(function(n){"
+         "var btn=document.createElement('button');btn.type='button';btn.className='btn';"
+         "btn.style.cssText='text-align:left;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:14px';"
+         "var s1=document.createElement('span');s1.textContent=n.ssid;"
+         "var s2=document.createElement('small');s2.textContent=(n.open?'Abierta':'Segura')+' · '+n.rssi+' dBm';"
+         "btn.appendChild(s1);btn.appendChild(s2);"
+         "btn.onclick=function(){document.getElementById('w_ssid').value=n.ssid;document.getElementById('w_pass').focus();};"
+         "box.appendChild(btn);"
+         "});"
+         "}).catch(function(){b.disabled=false;b.textContent='Buscar redes Wi-Fi cercanas';box.innerHTML='<small>Error al escanear redes.</small>';});"
+         "}"
+         "</script></body></html>");
 
   enviarCabecerasCORS();
   server.send(200, "text/html; charset=utf-8", h);
@@ -810,6 +943,9 @@ void paginaInicioLocal() {
 void setup() {
   Serial.begin(115200);
   for (uint8_t i = 0; i < N; i++) pinMode(PINES[i], INPUT);
+
+  WiFi.persistent(false);
+  WiFi.hostname("Focos-C7");
 
   EEPROM.begin(128);
   randomSeed(ESP.getCycleCount() ^ analogRead(A0));
@@ -827,19 +963,29 @@ void setup() {
     WiFi.begin(wifiSsid, wifiPass);
 
     unsigned long t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && (millis() - t0 < 8000)) {
+    while (WiFi.status() != WL_CONNECTED && (millis() - t0 < 15000)) {
       refrescarSiToca();
       delay(40);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("\n[Wi-Fi] Conectado! IP: %s\n", WiFi.localIP().toString().c_str());
+      destellarPares(1, 5, 2, 140, 140);   // 2 destellos verdes = Wi-Fi OK
+      setPatron(patron);
+      avanzar();
+      ultimo = millis();
       iniciarMDNS();
+      programarRadar();
     } else {
-      iniciarAP(true);
+      Serial.println("\n[Wi-Fi] No conecto en 15s; iniciando AP FocosC7.");
+      destellarPares(0, 4, 2, 140, 140);   // 2 destellos rojos = fallo Wi-Fi
+      setPatron(patron);
+      avanzar();
+      ultimo = millis();
+      iniciarAP();
     }
   } else {
-    iniciarAP(false);
+    iniciarAP();
   }
 
   udp.begin(4048);
@@ -859,17 +1005,17 @@ void setup() {
     aleatorio = false;
     setPatron(server.arg("n").toInt());
     avanzar(); ultimo = millis();
-    marcarGuardar(); redirigirLocal();
+    marcarGuardar(); programarRadar(); redirigirLocal();
   });
   server.on("/v", []() {
     aleatorio = false;
     velocidad = (uint16_t)constrain(server.arg("ms").toInt(), 30, 1000);
-    marcarGuardar(); redirigirLocal();
+    marcarGuardar(); programarRadar(); redirigirLocal();
   });
   server.on("/a", []() {
     aleatorio = (server.arg("on") == "1");
     if (aleatorio) { cambioAleatorio(); avanzar(); ultimo = millis(); }
-    marcarGuardar(); redirigirLocal();
+    marcarGuardar(); programarRadar(); redirigirLocal();
   });
   server.on("/t", []() {
     int mn = constrain(server.arg("min").toInt(), 5, 3600);
@@ -877,7 +1023,7 @@ void setup() {
     if (mx < mn) mx = mn;
     aleMin = (uint16_t)mn; aleMax = (uint16_t)mx;
     if (aleatorio) programarCambio();
-    marcarGuardar(); redirigirLocal();
+    marcarGuardar(); programarRadar(); redirigirLocal();
   });
   server.on("/wifi_local", HTTP_POST, []() {
     String s = server.arg("wifi_ssid");
@@ -887,13 +1033,28 @@ void setup() {
       strlcpy(wifiPass, server.arg("wifi_pass").c_str(), sizeof(wifiPass));
       wifiEstadoCfg = WIFI_MAGIC_SET;
       guardar(true);
-      server.send(200, "text/html; charset=utf-8",
-                  "<!DOCTYPE html><html><body style='background:#070b14;color:#4ade80;font-family:sans-serif;padding:24px'>"
-                  "<h3>Wi-Fi guardado. Reiniciando Focos C7...</h3></body></html>");
+      String msg = F("<!DOCTYPE html><html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+                     "<body style='background:#070b14;color:#e2e8f0;font-family:system-ui,sans-serif;padding:24px;line-height:1.5'>"
+                     "<h3 style='color:#4ade80;margin-top:0'>Wi-Fi guardado</h3>"
+                     "<p>Reiniciando para conectar a <b>");
+      msg += escaparHtml(s);
+      msg += F("</b>...</p>"
+               "<p style='color:#94a3b8;font-size:14px'>Si conecta bien ver&aacute;s <b>2 destellos verdes</b> en la serie y aparecer&aacute; autom&aacute;ticamente en GitHub Pages.<br>"
+               "Si falla la clave ver&aacute;s <b>2 destellos rojos</b> y volver&aacute; a abrirse la red <b>FocosC7</b>.</p>"
+               "</body></html>");
+      server.send(200, "text/html; charset=utf-8", msg);
       reinicioPendiente = true;
       tReinicio = millis();
     } else {
       redirigirLocal();
+    }
+  });
+  server.onNotFound([]() {
+    if (apActivo && WiFi.status() != WL_CONNECTED) {
+      server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString() + "/", true);
+      server.send(302, "text/plain", "");
+    } else {
+      server.send(404, "text/plain", "Not found");
     }
   });
 
@@ -903,18 +1064,24 @@ void setup() {
 void loop() {
   static bool eraDDP = false;
 
+  if (dnsCaptivoActivo) dnsServer.processNextRequest();
   server.handleClient();
   if (mdnsActivo) MDNS.update();
   recibirDDP();
   guardarSiToca();
   vigilarWiFi();
 
+  if (radarPendiente && (millis() - tRadar > 1800)) {
+    radarPendiente = false;
+    publicarRadar();
+  }
+
   if (otaPendiente) {
     ejecutarCloudOTA();
     return;
   }
 
-  if (reinicioPendiente && (millis() - tReinicio > 350)) {
+  if (reinicioPendiente && (millis() - tReinicio > 400)) {
     ESP.restart();
     return;
   }

@@ -1,12 +1,12 @@
 {
-  "version": "1.0.1",
-  "build_time": "23/11/2026 22:30",
-  "notes": "Vista previa compacta fija en móvil, LED instantáneo y soporte ESP8266MOD (v1.0.1)",
+  "version": "1.0.2",
+  "build_time": "23/11/2026 23:18",
+  "notes": "Auditoría completa Wi-Fi, escáner en portal local, Cloud Radar HTTPS y validación estricta de IP (v1.0.2)",
   "changelog": [
-    "Vista previa de los 8 focos siempre visible en móvil (< 1/3 de la pantalla) mientras el panel de velocidad se desliza libremente.",
-    "Encendido y apagado LED instantáneo (sin desvanecimiento suave) fiel a la serie Holiday Time.",
-    "Optimización real a 60/120 FPS por sprites pre-renderizados y cero traslapes entre pestañas.",
-    "Compatibilidad universal en Arduino IDE para ESP8266MOD (NodeMCU 1.0 / Generic ESP8266 Module) y diagnóstico de Flash OTA."
+    "Escáner interactivo de redes Wi-Fi cercanas integrado directo en el portal local (192.168.4.1 / /) con portal cautivo automático.",
+    "Descubrimiento automático vía Cloud Radar HTTPS desde GitHub Pages y destellos de estado al arrancar (2 verdes = Wi-Fi OK, 2 rojos = falló).",
+    "Validación estricta de IP en GitHub Pages: rechaza IPs incorrectas o de otros equipos y corrige el puente HTTP en navegadores móviles.",
+    "Ciclo Wi-Fi, AP FocosC7 y mDNS estabilizado (WiFi.persistent(false), hostname Focos-C7, 15s de espera Mesh y sin saltos de canal)."
   ],
   "url": "https://alexgremory255.github.io/focos-c7/firmware.bin",
   "fallback_url": "https://raw.githubusercontent.com/AlexGremory255/focos-c7/main/firmware.bin",
